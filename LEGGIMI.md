@@ -119,19 +119,19 @@ I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attivit
 - Nessuna modifica al database locale, al formato backup, ai permessi o alla sincronizzazione. Non è stata attivata alcuna condivisione reale.
 
 
-## CasaFacile 1.4.0-beta — modalità famiglia con backend opzionale
+## CasaFacile 1.4.0-beta — Cloudflare Access + D1 + R2
 
-Questa versione è **di sviluppo** e non sostituisce la 1.3.2 pubblicata. Richiede l'attivazione manuale del backend **Supabase** e non è abilitata con i valori vuoti di \`cloud-config.js\`.
+**Ramo dedicato:** sviluppo-casafacile-1-4-cloudflare.
+La versione stabile 1.3.2 nel ramo main rimane invariata.
 
-- Accesso email con codice OTP, inviti monouso legati alla stessa email verificata, durata di 7 giorni, revoca e ruoli owner/editor/viewer.
-- Tabella PostgreSQL separata per famiglie, membership, inviti e snapshot con RLS e privilegi SQL; le mutazioni passano da RPC controllate.
-- Modello a **revisione ottimistica (CAS)**: un dispositivo non può sovrascrivere silenziosamente modifiche remote. In caso di conflitto, i dati locali in sospeso sono conservati. La riconciliazione manuale di conflitti rimane da sviluppare.
-- Modalità personale isolata dalla copia condivisa. L'attivazione di una famiglia crea **un nuovo archivio condiviso** senza migrare o cancellare automaticamente quello personale. Le modifiche cloud restano in una cache locale diversa.
-- Sincronizzazione iniziale, automatica dopo modifiche, al ritorno online e ogni 30 secondi mentre l'app è aperta; **non ci sono notifiche push** o sincronizzazione in background a PWA chiusa.
-- I membri con ruolo *viewer* hanno sola lettura nel database e blocco delle azioni di modifica nell'interfaccia. La membership cloud è distinta dai nomi locali ai quali si assegnano le faccende.
-- Il contatore Condivisi indica gli **altri account autorizzati**, non utenti online; lo stato non verificato viene rappresentato con “–”.
-- Password, JWT, OTP e URL di invito non devono mai essere salvati dentro lo snapshot; i segreti non devono essere pubblicati.
-- Il formato backup JSON e la chiave personale \`casafacile.v1.database\` non cambiano.
-- **Limiti beta:** test database/RLS da eseguire su Supabase configurato, gestione dei conflitti manuali e verifica multi-device mancanti; l'archivio condiviso è un documento unitario (non merge per-attività); revocare l'accesso non può cancellare una copia già salvata offline su un dispositivo.
+La nuova architettura è composta da Cloudflare Access (autenticazione email), Worker API con verifiche JWT, database D1 con famiglie/ruoli, e bucket R2 privato con backup JSON versionati e verifica SHA-256.
 
-Consulta \`docs/CLOUD_SETUP.md\` per i passaggi di configurazione e collaudo prima di un rilascio.
+Ogni modifica confermata genera una nuova revisione e un backup R2. Una seconda modifica concorrente viene bloccata senza sovrascrivere i dati del primo dispositivo. La copia personale non viene convertita automaticamente. I dati condivisi vengono conservati in una cache separata per l'utilizzo offline.
+
+**Limiti attuali:** manca ancora la risoluzione assistita dei conflitti; la sincronizzazione avviene solo mentre la PWA è aperta; un telefono revocato può trattenere i dati già scaricati offline. Il servizio deve essere configurato e verificato con due account e due dispositivi.
+
+**Importante:** il backend è sul ramo di sviluppo, ma non è stato pubblicato su un account Cloudflare. La 1.3.2 rimane il riferimento stabile.
+
+Guida alla configurazione: docs/CLOUDFLARE_SETUP.md.
+
+Non pubblicare password, OTP, service token o credenziali amministrative.
