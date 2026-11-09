@@ -27,16 +27,27 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin || !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
+  const scopePath = new URL(self.registration.scope).pathname;
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(scopePath)) return;
+  // Keep authenticated API data and backups out of the app-shell cache entirely.
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith(scopePath + 'api/')) return;
   if (req.mode === 'navigate') {
     event.respondWith(fetch(req).then(resp => {
-      if (resp.ok) { const copy = resp.clone(); caches.open(CACHE).then(cache => cache.put('./index.html', copy)); }
+      if (resp.ok && !resp.redirected && new URL(resp.url).origin === self.location.origin &&
+          !/no-store/i.test(resp.headers.get('cache-control') || '')) {
+        const copy=resp.clone();
+        caches.open(CACHE).then(cache=>cache.put('./index.html',copy));
+      }
       return resp;
     }).catch(async () => await (await caches.open(CACHE)).match('./index.html') || Response.error()));
     return;
   }
   event.respondWith(caches.match(req).then(hit => hit || fetch(req).then(resp => {
-    if (resp.ok) { const copy = resp.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
+    if (resp.ok && !resp.redirected && new URL(resp.url).origin === self.location.origin &&
+      !/no-store/i.test(resp.headers.get('cache-control') || '')) {
+      const copy=resp.clone();
+      caches.open(CACHE).then(c=>c.put(req,copy));
+    }
     return resp;
   })));
 });
