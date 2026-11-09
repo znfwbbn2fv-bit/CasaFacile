@@ -102,3 +102,11 @@ I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attivit
 - Nuovo riquadro **Accessi e condivisioni** in Panoramica, selezionabile, con conteggi distinti: **accessi condivisi (0)** e **persone configurate localmente (db.members.length)**.
 - La nuova pagina **Condivisioni** elenca i nomi inseriti su questo dispositivo e segnala **Solo locale** per ciascuno. Non si affermano connessioni attive: senza account e sincronizzazione gli accessi remoti non sono supportati e il conteggio resta zero.
 - Il tasto **Gestisci Famiglia** porta alla pagina di assegnazione delle attività. Nessuna nuova struttura dati o modifica alla chiave locale; backup JSON precedenti compatibili.
+
+## CasaFacile 1.3.1 — riquadro Accessi e condivisioni
+
+- La barra inferiore su iPhone include ora **Famiglia**, senza bisogno di cercarla nella Dashboard.
+- La Dashboard include il pulsante **Accessi e condivisioni**, con due conteggi distinti: **accessi condivisi effettivi (0)** e **persone configurate localmente**.
+- Toccare il riquadro apre **Condivisioni**, con elenco dei nominativi e indicazione individuale «Solo locale». È presente un accesso diretto a **Famiglia** per gestire le persone.
+- Nessuno dei profili locali aggiunti crea account, accessi da altri dispositivi, inviti, o un canale di sincronizzazione. Non vengono inventati utenti connessi.
+- Database, backup JSON, schemaVersion 1 e chiave `casafacile.v1.database` invariati.
