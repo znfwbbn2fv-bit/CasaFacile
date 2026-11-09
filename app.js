@@ -578,39 +578,43 @@
 
   function sharingSnapshot(){
     return {
-      connected:0,
+      connected:typeof cloudMode==='undefined'||!cloudMode?0:(cloudTeam.length?Math.max(0,cloudTeam.length-1):null),
       configured:db.members.length,
       additional:db.members.filter(m=>!m.isOwner).length
     };
   }
   function renderSharingDashboardCard(){
-    const snapshot=sharingSnapshot();
+    const snapshot=sharingSnapshot(),count=snapshot.connected===null?'–':snapshot.connected;
+    const state=typeof cloudMode!=='undefined'&&cloudMode
+      ?'Famiglia condivisa · '+esc(cloudStatusText())
+      :'La condivisione tra dispositivi non è ancora attiva.';
     return '<button type="button" class="panel sharing-dashboard-card" data-action="nav" data-page="sharing"'
-      +' aria-label="Verifica condivisioni: '+snapshot.connected+' accessi condivisi e '+snapshot.configured+' persone configurate localmente">'
+      +' aria-label="Verifica condivisioni: '+esc(count)+' accessi condivisi e '+snapshot.configured+' persone configurate localmente">'
       +'<span class="sharing-card-heading"><span class="sharing-card-icon">'+ico('users')+'</span>'
       +'<span class="sharing-card-title"><strong>Accessi e condivisioni</strong>'
       +'<small>Verifica chi è configurato o collegato all’app</small></span>'
       +'<span class="sharing-card-chevron" aria-hidden="true">'+ico('chevron-right')+'</span></span>'
       +'<span class="sharing-card-numbers">'
-      +'<span><strong>'+snapshot.connected+'</strong><small>Accessi condivisi</small></span>'
+      +'<span><strong>'+count+'</strong><small>Accessi condivisi</small></span>'
       +'<span><strong>'+snapshot.configured+'</strong><small>Persone configurate localmente</small></span>'
-      +'</span><span class="sharing-card-footnote">La condivisione tra dispositivi non è ancora attiva.</span>'
-      +'</button>';
+      +'</span><span class="sharing-card-footnote">'+state+'</span></button>';
   }
   function renderSharing(){
-    const snapshot=sharingSnapshot();
+    const snapshot=sharingSnapshot(),count=snapshot.connected===null?'–':snapshot.connected;
     const members=db.members.map(m=>'<div class="sharing-person-row">'
       +'<span class="person-bubble" style="background:'+esc(m.color||'#eee6fc')+'">'
       +esc((m.name||'?').slice(0,2).toUpperCase())+'</span>'
       +'<div class="sharing-person-info"><strong>'+esc(m.name||'Persona')+'</strong>'
       +'<small>'+(m.isOwner?'Profilo principale':'Membro aggiunto alla famiglia')+'</small></div>'
       +'<span class="sharing-local-status">'+ico('house')+' Solo locale</span></div>').join('');
+    const connectedCopy=typeof cloudMode!=='undefined'&&cloudMode
+      ?'<p>Numero degli account autorizzati, senza contare il tuo. Non indica chi è attualmente online.</p>'
+      :'<p>Al momento <strong>nessuno ha un accesso condiviso</strong>. CasaFacile non dispone ancora di account, inviti o sincronizzazione: non è possibile collegare un altro telefono.</p>';
     return header('Accessi e condivisioni','Controlla le persone registrate nell’app e lo stato effettivo della condivisione.')
       +'<div class="sharing-overview"><section class="panel sharing-status-panel">'
       +'<div class="sharing-section-title">'+ico('users')+'<h3>Persone collegate da altri dispositivi</h3></div>'
-      +'<div class="sharing-status-count">'+snapshot.connected+'</div>'
-      +'<p>Al momento <strong>nessuno ha un accesso condiviso</strong>. CasaFacile non dispone ancora di account, inviti o sincronizzazione: non è possibile collegare un altro telefono.</p>'
-      +'<div class="sharing-status-note">Questo valore non è un indicatore di presenza online: gli accessi remoti non sono supportati in questa versione.</div>'
+      +'<div class="sharing-status-count">'+count+'</div>'+connectedCopy
+      +'<div class="sharing-status-note">Il numero si riferisce agli account autorizzati, non alle persone online.</div>'
       +'</section><section class="panel sharing-status-panel">'
       +'<div class="sharing-section-title">'+ico('users')+'<h3>Persone configurate su questo iPhone</h3></div>'
       +'<div class="sharing-status-count">'+snapshot.configured+'</div>'
@@ -621,10 +625,11 @@
       +'<small>Stato di accesso</small></div>'
       +'<div class="sharing-people-list">'+members+'</div>'
       +'<div class="sharing-list-actions"><button type="button" class="btn btn-soft" data-action="nav" data-page="people">'
-      +ico('users')+' Gestisci Famiglia</button></div></section>';
+      +ico('users')+' Gestisci Famiglia</button></div></section>'
+      +(typeof cloudAvailable==='function'?renderCloudPanel():'');
   }
 
-  function renderDashboard(){const s=statistics();const today=s.pending;const upcoming=sortedTasks(s.open.filter(t=>t.dueDate>TODAY())).slice(0,4);const display=esc(db.settings.displayName||'');
+    function renderDashboard(){const s=statistics();const today=s.pending;const upcoming=sortedTasks(s.open.filter(t=>t.dueDate>TODAY())).slice(0,4);const display=esc(db.settings.displayName||'');
     return `<section class="hero"><div class="hero-text"><div class="eyebrow">${esc(prettyWeek(TODAY()).toUpperCase())}</div><h2>${display?`Ciao, ${display}!`:'Una casa più serena, un passo alla volta.'} ✨</h2><p>Organizza le faccende senza stress. Ogni attività completata è un piccolo traguardo.</p><button class="btn btn-primary" data-action="new-task">${ico('plus')} Aggiungi attività</button><small class="hero-credit">by SEGNOTA Studio</small></div><div class="hero-decoration">${ico('house')}</div></section>
     <section class="stat-grid" aria-label="Riepilogo"><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="today" aria-label="Apri da fare oggi"><div class="stat-top"><span class="stat-icon tint-purple">${ico('list')}</span></div><div class="stat-number">${s.pending.length}</div><div class="stat-name">Da fare oggi</div><div class="stat-detail">Incluse le attività in ritardo</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="doneToday" aria-label="Apri completate oggi"><div class="stat-top"><span class="stat-icon tint-green">${ico('check')}</span></div><div class="stat-number">${s.doneToday.length}</div><div class="stat-name">Completate oggi</div><div class="stat-detail">Ottimo lavoro!</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="upcoming" aria-label="Apri programmate"><div class="stat-top"><span class="stat-icon tint-amber">${ico('clock')}</span></div><div class="stat-number">${s.open.filter(t=>t.dueDate>TODAY()).length}</div><div class="stat-name">Programmate</div><div class="stat-detail">Nei prossimi giorni</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="overdue" aria-label="Apri in ritardo"><div class="stat-top"><span class="stat-icon tint-pink">${ico('alert')}</span></div><div class="stat-number">${s.overdue.length}</div><div class="stat-name">In ritardo</div><div class="stat-detail">Recuperabili con calma</div></button></section>
     ${renderSharingDashboardCard()}${renderDashboardInsights()}${renderFamilyDashboardLink()}<div class="content-grid"><section class="panel"><div class="panel-head"><h3>🗓️ Da fare oggi</h3><button class="text-button" data-action="view-tasks">Tutte le attività ${ico('arrow')}</button></div>${today.length?`<div class="chore-list">${sortedTasks(today).slice(0,7).map(t=>choreRow(t,{noBadge:false})).join('')}</div>${today.length>7?`<div class="tip-line">Altre ${today.length-7} attività nell'elenco completo.</div>`:''}`:empty('Tutto sotto controllo!',db.chores.length?'Nessuna attività in scadenza oggi.':'Inizia aggiungendo la tua prima faccenda domestica.',db.chores.length?'':btnAdd('Crea la prima attività'))}
