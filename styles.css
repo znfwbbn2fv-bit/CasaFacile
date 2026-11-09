@@ -108,3 +108,17 @@
 @media(max-width:1200px){.insights-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.reminder-summary{grid-column:1/-1}.reminder-columns{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.insights-grid,.reminder-columns{grid-template-columns:1fr}.reminder-summary{grid-column:auto}.insights-grid .panel{padding:18px}.stats-range-btn{padding:9px 12px}.trend-chart{height:195px;gap:5px}.trend-label{font-size:9px}.reminder-panel .task-actions .pill{display:none}}
 @media(prefers-reduced-motion:reduce){.trend-rail i{transition:none}}
+
+
+/* CasaFacile 1.2.1 — riquadri navigabili e pulsante Indietro nelle sezioni. */
+button.stat-card-link{display:block;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;position:relative;-webkit-tap-highlight-color:transparent;transition:transform .15s,box-shadow .15s,border-color .15s}
+button.stat-card-link:hover{transform:translateY(-2px);border-color:#dcd4f4;box-shadow:0 10px 24px #7967b514}
+button.stat-card-link:focus-visible{outline:3px solid #8064c7;outline-offset:3px}
+button.stat-card-link:active{transform:translateY(0);background:#fbf9ff}
+button.stat-card-link:after{content:'›';position:absolute;top:18px;right:17px;color:#aaa0cb;font-size:24px;line-height:1;font-weight:500}
+.section-back{display:flex;align-items:center;margin:0 0 12px}
+.section-back-btn{display:inline-flex;align-items:center;gap:5px;min-height:37px;padding:6px 12px 6px 7px;border:1px solid #e9e5f3;border-radius:10px;background:#fff;color:#7365ad;font-size:13px;font-weight:750;cursor:pointer}
+.section-back-btn .icon{width:16px;height:16px}
+.section-back-btn:hover{background:#f3f0fb}
+.section-back-btn:focus-visible{outline:3px solid #8064c7;outline-offset:2px}
+@media(max-width:640px){button.stat-card-link:after{right:11px;top:10px;font-size:20px}.section-back{margin-bottom:10px}.section-back-btn{font-size:12px}}
