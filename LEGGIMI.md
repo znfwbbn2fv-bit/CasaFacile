@@ -1,4 +1,4 @@
-# CasaFacile 1.3.1 — SEGNOTA Studio
+# CasaFacile 1.3.2 — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -110,3 +110,10 @@ I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attivit
 - Toccare il riquadro apre **Condivisioni**, con elenco dei nominativi e indicazione individuale «Solo locale». È presente un accesso diretto a **Famiglia** per gestire le persone.
 - Nessuno dei profili locali aggiunti crea account, accessi da altri dispositivi, inviti, o un canale di sincronizzazione. Non vengono inventati utenti connessi.
 - Database, backup JSON, schemaVersion 1 e chiave `casafacile.v1.database` invariati.
+
+## CasaFacile 1.3.2 — accessi condivisi accanto al profilo
+
+- Nella testata, accanto all'avatar del profilo personale, è presente il pulsante **Condivisi 0**. Il numero corrisponde agli **accessi remoti effettivi**, che in questa PWA offline senza autenticazione rimangono zero; non coincide con il numero dei nominativi aggiunti alla Famiglia.
+- Toccando il pulsante si apre la sezione **Condivisioni**, che distingue accessi remoti e persone configurate in locale.
+- La barra inferiore dell'iPhone mostra anche la scheda **Condivisi** (etichetta breve di Condivisioni), oltre alle sezioni già presenti. Il riquadro cliccabile nella Dashboard resta disponibile.
+- Nessuna modifica al database locale, al formato backup, ai permessi o alla sincronizzazione. Non è stata attivata alcuna condivisione reale.
