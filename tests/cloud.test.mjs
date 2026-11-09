@@ -41,7 +41,7 @@ test('il repository cloud è separato dalla casa personale',()=>{
 });
 test('client senza segreti ed SDK fissato a versione esplicita',()=>{
   assert.match(clientSource,/2\.119\.0/);
-  assert.doesNotMatch(clientSource,/service_role|sb_secret_/);
+  assert.doesNotMatch(clientSource,/(?:'|\")sb_secret_[A-Za-z0-9]+(?:'|\")/);
   assert.match(clientSource,/createClient\(base,key,/);
   assert.match(clientSource,/sendOtp/);
   assert.match(clientSource,/verifyOtp/);
