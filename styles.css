@@ -170,6 +170,7 @@ button.stat-card-link:after{content:'›';position:absolute;top:18px;right:17px;
 .family-member-filter select{min-height:36px;background:#fff;border:1px solid #ded9ec;border-radius:10px;padding:6px 25px 6px 10px;font-size:12px;min-width:130px;max-width:100%}
 .family-unassigned{margin-bottom:18px}
 @media(max-width:850px){.family-person-grid{grid-template-columns:1fr}.family-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:760px){.family-assign-field select,.family-member-filter select{font-size:16px;min-height:44px}}
 @media(max-width:530px){
   .family-dashboard-link>.btn{width:100%}
   .family-stat-grid{gap:9px}
