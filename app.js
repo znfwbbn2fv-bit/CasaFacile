@@ -957,7 +957,87 @@
 
   function demo(){if(db.chores.length&&!confirm('Aggiungere otto attività di esempio alle attività che hai già?'))return;const examples=[['Rifare i letti',2,'daily',1,10],['Lavare i piatti',0,'daily',1,15],['Pulire il piano cucina',0,'daily',1,10],['Pulire il bagno',1,'weekly',1,35],['Passare aspirapolvere',3,'weekly',1,30],['Avviare lavatrice',4,'weekly',1,20],['Cambiare le lenzuola',2,'weekly',2,25],['Pulire i vetri',5,'monthly',1,45]];const start=TODAY();for(const [title,roomIndex,freq,interval,minutes] of examples){db.chores.push({id:uid(),householdId:db.household.id,title,roomId:db.rooms[roomIndex%db.rooms.length]?.id||db.rooms[0].id,memberId:db.members[0].id,dueDate:start,repeat:{freq,interval,anchorDay:Number(start.slice(-2))},priority:'medium',minutes,notes:'',done:false,completedAt:null,createdAt:nowISO(),updatedAt:nowISO()});}save();render();toast('Otto attività di esempio aggiunte.');}
   function toast(msg,type=''){const root=el('toast-root');root.innerHTML=`<div class="toast ${type}">${esc(msg)}</div>`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>root.innerHTML='',4200);}
-  document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,id=b.dataset.id;switch(a){case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'go-back':goBack();break;case'dashboard-summary':openDashboardSummary(b.dataset.filter);break;case'view-tasks':taskFilter='all';memberFilter='all';go('tasks');break;case'family-view-tasks':goFamilyTasks(id);break;case'family-new-task':if(memberById(id))openTaskModal(null,null,id);break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'open-task-filter':taskFilter=b.dataset.filter;memberFilter='all';taskSearch='';go('tasks');break;case'stats-range':statsPeriod=Number(b.dataset.days)===30?30:7;statsSelectedBar=null;render();break;case'stats-bar':statsSelectedBar=Number(b.dataset.bar);render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
+  document.addEventListener('click',async e=>{
+    const b=e.target.closest('[data-action]');if(!b)return;
+    const a=b.dataset.action,id=b.dataset.id;
+    const edits=['new-task','edit-task','complete','reopen','undo-completion','delete-task',
+      'new-room','edit-room','delete-room','new-person','edit-person','delete-person',
+      'family-new-task','routine-import','demo','confirm-import','restore-import'];
+    if(cloudMode?.role==='viewer'&&edits.includes(a)){
+      toast('Questa famiglia è di sola lettura.','error');return;
+    }
+    if(cloudMode&&['confirm-import','restore-import'].includes(a)){
+      toast('Per ripristinare dati, torna prima alla casa personale.','error');return;
+    }
+    switch(a){
+    case'cloud-refresh':await cloudAction('Aggiornamento',async()=>{
+      cloudUser=await cloudService.user();await cloudReloadGroups();
+      if(cloudMode){
+        await cloudSync();
+        if(cloudMode?.role==='owner')cloudInvitations=await cloudService.listInvitations(cloudMode.id);
+      }
+    });break;
+    case'cloud-create':await cloudAction('Creazione famiglia',async()=>{
+      if(cloudMode)throw new Error('Torna alla casa personale prima di crearne una nuova.');
+      if(!cloudUser)throw new Error('Prima effettua l’accesso.');
+      const created=await cloudService.createHousehold(JSON.parse(JSON.stringify(db)));
+      if(!created?.household_id)throw new Error('Creazione non confermata.');
+      await cloudReloadGroups();
+      await cloudActivate(created.household_id);
+    });break;
+    case'cloud-open':await cloudAction('Apertura famiglia',async()=>{
+      await cloudActivate(id);
+      if(cloudMode?.role==='owner')cloudInvitations=await cloudService.listInvitations(id);
+    });break;
+    case'cloud-local':cloudSwitchPersonal();break;
+    case'cloud-logout':await cloudAction('Disconnessione',async()=>{
+      if(cloudMode?.dirty)throw new Error('Sincronizza prima le modifiche condivise.');
+      if(cloudMode)cloudSwitchPersonal();
+      await cloudService.logout();
+      cloudUser=null;cloudGroups=[];cloudTeam=[];cloudInvitations=[];cloudInviteUrl='';
+    });break;
+    case'cloud-sync':await cloudAction('Sincronizzazione',async()=>{
+      await cloudSync();
+      if(cloudError)throw new Error(cloudError);
+      if(cloudMode?.role==='owner')cloudInvitations=await cloudService.listInvitations(cloudMode.id);
+    });break;
+    case'cloud-accept-invite':await cloudAction('Invito',async()=>{
+      if(!cloudPendingInvite)throw new Error('Invito non disponibile.');
+      const group=await cloudService.acceptInvitation(cloudPendingInvite);
+      cloudPendingInvite=null;
+      await cloudReloadGroups();
+      await cloudActivate(group);
+    });break;
+    case'cloud-remove':await cloudAction('Revoca accesso',async()=>{
+      if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può revocare.');
+      if(!confirm('Revocare l’accesso alla famiglia per questa persona?'))return;
+      await cloudService.removeMember(cloudMode.id,id);
+      await cloudSync();
+    });break;
+    case'cloud-revoke-invite':await cloudAction('Revoca invito',async()=>{
+      if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può revocare.');
+      await cloudService.revokeInvitation(id);
+      cloudInvitations=await cloudService.listInvitations(cloudMode.id);
+    });break;
+    case'cloud-leave':await cloudAction('Uscita dalla famiglia',async()=>{
+      if(!cloudMode||cloudMode.role==='owner')throw new Error('Il proprietario non può lasciare la famiglia.');
+      if(cloudMode.dirty)throw new Error('Sincronizza prima le modifiche pendenti.');
+      if(!confirm('Uscire da questa famiglia condivisa?'))return;
+      const activeId=cloudMode.id;
+      await cloudService.leaveHousehold(activeId);
+      cloudSwitchPersonal();
+      await cloudReloadGroups();
+    });break;
+    case'cloud-copy-invite':try{
+      const input=el('cloud-invite-url');if(!input)break;
+      await navigator.clipboard.writeText(input.value);
+      toast('Link di invito copiato.');
+    }catch{
+      const input=el('cloud-invite-url');
+      if(input){input.focus();input.select();}
+      toast('Seleziona e copia il link manualmente.');
+    }break;
+case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'go-back':goBack();break;case'dashboard-summary':openDashboardSummary(b.dataset.filter);break;case'view-tasks':taskFilter='all';memberFilter='all';go('tasks');break;case'family-view-tasks':goFamilyTasks(id);break;case'family-new-task':if(memberById(id))openTaskModal(null,null,id);break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'open-task-filter':taskFilter=b.dataset.filter;memberFilter='all';taskSearch='';go('tasks');break;case'stats-range':statsPeriod=Number(b.dataset.days)===30?30:7;statsSelectedBar=null;render();break;case'stats-bar':statsSelectedBar=Number(b.dataset.bar);render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
   document.addEventListener('submit',e=>{const form=e.target;if(!['task-form','room-form','person-form','settings-form'].includes(form.id))return;e.preventDefault();if(form.id==='task-form')saveTask(form);if(form.id==='room-form')saveRoom(form);if(form.id==='person-form')savePerson(form);if(form.id==='settings-form'){const fd=new FormData(form),name=String(fd.get('homeName')||'').trim();if(!name){toast('Inserisci il nome della casa.','error');return;}db.household.name=name.slice(0,48);db.settings.displayName=String(fd.get('displayName')||'').trim().slice(0,32);save();render();toast('Preferenze salvate.');}});
   document.addEventListener('input',e=>{if(e.target.id==='task-search'){taskSearch=e.target.value;renderTaskResults();}});
   document.addEventListener('change',e=>{if(e.target.id==='task-member-filter'){memberFilter=e.target.value;renderTaskResults();return;}if(e.target.matches?.('select[data-action="family-assign"]')){reassignFamilyTask(e.target.dataset.taskId,e.target.value);return;}if(e.target.matches?.('#routine-catalog input[data-routine-id]')){if(e.target.checked)routineSelection.add(e.target.dataset.routineId);else routineSelection.delete(e.target.dataset.routineId);updateRoutineSelectionUI();return;}if(e.target.id==='t-repeat')el('interval-wrapper')?.classList.toggle('hidden',e.target.value==='none');if(e.target.id==='import-file')prepareImport(e.target.files?.[0]);});
