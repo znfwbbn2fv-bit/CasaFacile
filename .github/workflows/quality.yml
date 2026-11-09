@@ -27,5 +27,7 @@ jobs:
           test -f cloudflare/public/index.html
           test -f cloudflare/public/cloud-client.js
           test ! -f cloudflare/public/src/worker.mjs
+      - name: Smoke-test database D1 su SQLite
+        run: python3 cloudflare/scripts/test-schema.py
       - name: Test automatici
         run: node --test tests/*.test.mjs
