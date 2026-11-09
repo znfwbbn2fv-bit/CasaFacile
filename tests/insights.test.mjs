@@ -53,14 +53,14 @@ test('Promemoria scadenze: vecchie, oggi, tre giorni senza completate',()=>{
   assert.equal(m.soon.map(x=>x.id).join(','),'soon1,soon2');
 });
 test('Solo interfaccia nuova, nessuna migrazione distruttiva',()=>{
-  assert.match(js,/const VERSION = '1\.3\.0'/);
+  assert.match(js,/const VERSION = '1\.3\.1'/);
   assert.match(js,/const STORAGE_KEY = 'casafacile\.v1\.database'/);
   assert.match(js,/schemaVersion:1/);
   assert.match(js,/case'reminders':html=renderReminders\(\)/);
   assert.match(js,/statsSelectedBar=Number\(b\.dataset\.bar\)/);
   assert.match(js,/data-page="reminders"/);
   assert.match(html,/id="i-bell"/);
-  assert.match(html,/styles\.css\?v=1\.3\.0/);
-  assert.match(html,/app\.js\?v=1\.3\.0/);
-  assert.match(sw,/casafacile-static-1\.3\.0/);
+  assert.match(html,/styles\.css\?v=1\.3\.1/);
+  assert.match(html,/app\.js\?v=1\.3\.1/);
+  assert.match(sw,/casafacile-static-1\.3\.1/);
 });
