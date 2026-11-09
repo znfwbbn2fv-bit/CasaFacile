@@ -78,9 +78,10 @@ async function pruneBackups(env,id){
       'SELECT id,r2_key FROM backups WHERE household_id=? ORDER BY revision DESC LIMIT 1000 OFFSET ?')
       .bind(id,MAX_BACKUPS_PER_HOME).all();
     for(const backup of old.results||[]){
-      await env.BACKUPS.delete(backup.r2_key);
-      await env.DB.prepare('DELETE FROM backups WHERE id=? AND household_id=?')
+      // Prefer an unreferenced private R2 object over a listed backup whose file is missing.
+      const removed=await env.DB.prepare('DELETE FROM backups WHERE id=? AND household_id=?')
         .bind(backup.id,id).run();
+      if(affected(removed)===1)await env.BACKUPS.delete(backup.r2_key);
     }
   }catch(e){console.warn('Backup retention cleanup deferred',e);}
 }
