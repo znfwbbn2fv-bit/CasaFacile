@@ -197,7 +197,7 @@ end $$;
 create or replace function public.cf_remove_member(p_household uuid,p_user uuid)
 returns boolean language plpgsql security definer set search_path = ''
 as $$
-declare v_owner uuid; v_email text;
+declare v_owner uuid; v_email text; v_removed boolean := false;
 begin
  select h.owner_id into v_owner from public.cf_households h where h.id=p_household;
  if v_owner is null or v_owner is distinct from auth.uid() or p_user=v_owner
@@ -206,13 +206,14 @@ begin
  where m.household_id=p_household and m.user_id=p_user;
  delete from public.cf_household_members m
  where m.household_id=p_household and m.user_id=p_user and m.role<>'owner';
+ v_removed := found;
  if v_email is not null then
    update public.cf_invitations i set revoked_at=now()
    where i.household_id=p_household and i.invited_email=v_email
      and i.accepted_at is null and i.revoked_at is null;
  end if;
- return found;
-end $$;
+ return v_removed;
+end $;
 
 create or replace function public.cf_leave_household(p_household uuid)
 returns boolean language plpgsql security definer set search_path = ''
