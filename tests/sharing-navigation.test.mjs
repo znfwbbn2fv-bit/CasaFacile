@@ -17,7 +17,7 @@ test('indicatore cliccabile accanto al profilo',()=>{
   assert.match(segment,/>Condivisi</);
 });
 test('il numero condivisi rappresenta solo gli accessi remoti (non le persone locali)',()=>{
-  assert.match(js,/function sharingSnapshot\(\)\s*\{\s*return \{\s*connected:0,/);
+  assert.ok(js.includes("connected:typeof cloudMode==='undefined'||!cloudMode?0:"));
   assert.ok(js.includes("el('top-sharing-count').textContent=shared===null?'–':String(shared)"));
   assert.ok(js.includes("shared+' accessi condivisi'"));
   assert.ok(js.includes('function renderSharing(){'));
