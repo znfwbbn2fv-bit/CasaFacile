@@ -1,112 +1,92 @@
-/* CasaFacile 1.4 — Cloud service (optional, not configured in production).
-   Supabase publishable key ONLY. Never put a service_role/secret key here. */
+/* CasaFacile Cloudflare 1.4.0-beta client.
+ * All requests stay on the same origin as the Cloudflare Access-protected PWA.
+ * Cloudflare Access handles email OTP externally; this client never stores passwords. */
 (()=>{
 'use strict';
-const cfg=window.CasaFacileCloudConfig||{};
-const valid=/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(String(cfg.url||''))
- && /^sb_publishable_[A-Za-z0-9_-]+$/.test(String(cfg.publishableKey||''));
-const base=valid?String(cfg.url).replace(/\/+$/,''):null;
-const key=valid?String(cfg.publishableKey):null;
-let clientPromise=null;
+const settings=window.CasaFacileCloudConfig||{};
+const ready=settings.provider==='cloudflare'&&settings.enabled===true&&
+  location.protocol==='https:'&&!location.hostname.endsWith('.github.io');
 let pendingInvite=null;
 try{
-  const url=new URL(location.href);
-  const token=url.searchParams.get('invite');
-  if(token&&/^[0-9a-f]{64}$/.test(token))pendingInvite=token;
-  if(url.searchParams.has('invite')){
-    url.searchParams.delete('invite');
-    history.replaceState(history.state,'',url.pathname+url.search+url.hash);
+  const hash=location.hash.slice(1);
+  const match=/^sharing\?invite=([a-f0-9]{64})$/i.exec(hash);
+  if(match){
+    pendingInvite=match[1].toLowerCase();
+    history.replaceState(history.state,'',location.pathname+location.search+'#sharing');
   }
-}catch(e){console.warn('Non è stato possibile pulire il link di invito',e);}
-const sdkUrl='https://esm.sh/@supabase/supabase-js@2.119.0';
-const first=(r)=>{
-  if(r.error)throw new Error(r.error.message||'Richiesta cloud non riuscita');
-  return r.data;
-};
-function available(){return !!valid;}
-async function client(){
-  if(!valid)throw new Error('Servizio condivisione non configurato.');
-  if(!clientPromise)clientPromise=import(sdkUrl)
-    .then(({createClient})=>createClient(base,key,{
-      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false,storageKey:'casafacile.cloud.auth'}
-    })).catch(e=>{clientPromise=null;throw e;});
-  return clientPromise;
+}catch(e){console.warn('Invito non disponibile',e);}
+async function api(path,{method='GET',payload}={}){
+  if(!ready)throw Error('Condivisione Cloudflare non configurata.');
+  const options={method,credentials:'same-origin',cache:'no-store',
+    headers:{accept:'application/json'}};
+  if(payload!==undefined){options.headers['content-type']='application/json';options.body=JSON.stringify(payload);}
+  let response;
+  try{response=await fetch('/api/'+path.replace(/^\/+/,''),options);}
+  catch{throw new Error('Cloud offline o rete non disponibile. I dati locali sono conservati.');}
+  let result;
+  try{result=await response.json();}
+  catch{throw new Error('Sessione Cloudflare Access da verificare. Riapri la pagina e accedi.');}
+  if(!response.ok)throw new Error(result?.error||('Errore cloud '+response.status));
+  return result;
 }
-async function user(){
-  const c=await client();
-  const session=first(await c.auth.getSession()).session;
-  if(!session)return null;
-  return first(await c.auth.getUser()).user||null;
+const available=()=>ready;
+async function user(){return (await api('session')).user||null;}
+async function sendOtp(){throw new Error('L’accesso tramite codice email è gestito da Cloudflare Access alla prima apertura della pagina protetta.');}
+async function verifyOtp(){throw new Error('Verifica il codice di Cloudflare Access nella sua schermata dedicata.');}
+async function logout(){
+  // Actual Access logout is performed by navigating to the Access endpoint.
+  location.assign('/cdn-cgi/access/logout');
 }
-async function sendOtp(email){
-  const c=await client();
-  const value=String(email||'').trim().toLowerCase();
-  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value)||value.length>254)throw new Error('Inserisci un’email valida.');
-  first(await c.auth.signInWithOtp({email:value,options:{shouldCreateUser:true}}));
-}
-async function verifyOtp(email,token){
-  const c=await client();
-  const code=String(token||'').trim();
-  if(!/^[0-9]{6,8}$/.test(code))throw new Error('Inserisci il codice ricevuto via email.');
-  return first(await c.auth.verifyOtp({email:String(email).trim().toLowerCase(),token:code,type:'email'}));
-}
-async function logout(){const c=await client();first(await c.auth.signOut());}
-async function households(){
-  const c=await client();
-  const groups=first(await c.from('cf_households')
-    .select('id,name,revision,updated_at,owner_id').order('updated_at',{ascending:false}));
-  if(!groups.length)return [];
-  const mine=first(await c.from('cf_household_members')
-    .select('household_id,user_id,role,email').in('household_id',groups.map(g=>g.id)));
-  return groups.map(g=>({...g,role:mine.find(m=>m.household_id===g.id)?.role||'viewer'}));
-}
-async function getHousehold(id){
-  const c=await client();
-  const row=first(await c.from('cf_households')
-    .select('id,name,revision,snapshot,updated_at,owner_id').eq('id',id).single());
-  const members=first(await c.from('cf_household_members')
-    .select('user_id,email,role,joined_at').eq('household_id',id)
-    .order('joined_at',{ascending:true}));
-  const me=(await user())?.id;
-  return {...row,members,role:members.find(m=>m.user_id===me)?.role||null};
-}
-async function rpc(name,args){
-  const c=await client();
-  return first(await c.rpc(name,args));
-}
-async function createHousehold(snapshot){
-  const rows=await rpc('cf_create_household',{p_snapshot:snapshot});
-  return rows?.[0]||null;
-}
+async function households(){return (await api('homes')).households||[];}
+async function getHousehold(id){return api('homes/'+encodeURIComponent(id));}
+async function createHousehold(snapshot){return api('homes',{method:'POST',payload:{snapshot}});}
 async function updateHousehold(id,revision,snapshot){
-  return rpc('cf_update_household',{p_household:id,p_expected_revision:revision,p_snapshot:snapshot});
+  const result=await api('homes/'+encodeURIComponent(id),{method:'PATCH',payload:{expectedRevision:revision,snapshot}});
+  return result.revision;
 }
 async function createInvitation(id,email,role){
-  const rows=await rpc('cf_create_invitation',{p_household:id,p_email:email,p_role:role});
-  return rows?.[0]||null;
+  return api('homes/'+encodeURIComponent(id)+'/invitations',{method:'POST',payload:{email,role}});
 }
 async function acceptInvitation(token){
-  return rpc('cf_accept_invitation',{p_token:token});
+  return (await api('invitations/accept',{method:'POST',payload:{token}})).household_id;
 }
-async function removeMember(id,userId){
-  return rpc('cf_remove_member',{p_household:id,p_user:userId});
+async function removeMember(id,email){
+  return (await api('homes/'+encodeURIComponent(id)+'/members/'+encodeURIComponent(email),{method:'DELETE'})).removed;
 }
 async function leaveHousehold(id){
-  return rpc('cf_leave_household',{p_household:id});
+  return (await api('homes/'+encodeURIComponent(id)+'/leave',{method:'POST'})).removed;
 }
 async function listInvitations(id){
-  return rpc('cf_list_invitations',{p_household:id});
+  return (await api('homes/'+encodeURIComponent(id)+'/invitations')).invitations||[];
 }
 async function revokeInvitation(id){
-  return rpc('cf_revoke_invitation',{p_invitation:id});
+  // Invitations are uniquely identified across households; client must know current household.
+  throw new Error('Usa revokeInvitationForHousehold con l’identificativo della famiglia.');
+}
+async function revokeInvitationForHousehold(householdId,invitationId){
+  return (await api('homes/'+encodeURIComponent(householdId)+'/invitations/'+encodeURIComponent(invitationId),{method:'DELETE'})).revoked;
+}
+async function listBackups(id){return (await api('homes/'+encodeURIComponent(id)+'/backups')).backups||[];}
+async function downloadBackup(id,backupId){
+  const response=await fetch('/api/homes/'+encodeURIComponent(id)+'/backups/'+encodeURIComponent(backupId),{
+    credentials:'same-origin',cache:'no-store'});
+  if(!response.ok)throw new Error('Download del backup non riuscito');
+  const data=await response.blob();
+  const url=URL.createObjectURL(data),a=document.createElement('a');
+  a.href=url;a.download='CasaFacile_cloud_backup.json';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+async function restoreBackup(id,backupId,expectedRevision){
+  const result=await api('homes/'+encodeURIComponent(id)+'/backups/restore',{method:'POST',
+    payload:{backupId,expectedRevision}});
+  return result.revision;
 }
 function takeInvite(){const token=pendingInvite;pendingInvite=null;return token;}
-function hasInvite(){return Boolean(pendingInvite);}
-window.CasaFacileCloud={
-  available,client,user,sendOtp,verifyOtp,logout,
-  households,getHousehold,createHousehold,updateHousehold,
-  createInvitation,acceptInvitation,removeMember,leaveHousehold,
-  listInvitations,revokeInvitation,takeInvite,hasInvite,
-  configuration:{ready:valid}
-};
+function hasInvite(){return pendingInvite!==null;}
+window.CasaFacileCloud={available,user,sendOtp,verifyOtp,logout,households,getHousehold,
+  createHousehold,updateHousehold,createInvitation,acceptInvitation,removeMember,leaveHousehold,
+  listInvitations,revokeInvitation,revokeInvitationForHousehold,
+  listBackups,downloadBackup,restoreBackup,takeInvite,hasInvite,
+  configuration:{ready,provider:'cloudflare'}};
 })();
