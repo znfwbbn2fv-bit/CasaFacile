@@ -496,7 +496,8 @@
     if(!cloudAvailable())return;
     try{
       cloudUser=await cloudService.user();
-      cloudPendingInvite=cloudService.takeInvite();
+      // An invitation is consumed from the URL only once. Reconnect attempts preserve it.
+      if(!cloudPendingInvite)cloudPendingInvite=cloudService.takeInvite();
       if(cloudUser){
         await cloudReloadGroups();
         if(cloudMode)await cloudSync();
@@ -1098,8 +1099,13 @@ if(form.id==='task-form')saveTask(form);if(form.id==='room-form')saveRoom(form);
   if(cloudAvailable()){
     void cloudInit();
     setInterval(()=>{if(cloudMode)void cloudSync();},30000);
-    window.addEventListener('online',()=>{if(cloudMode)void cloudSync();});
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudMode)void cloudSync();});
+    window.addEventListener('online',()=>{
+      if(!cloudUser)void cloudInit();else if(cloudMode)void cloudSync();
+    });
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden)return;
+      if(!cloudUser)void cloudInit();else if(cloudMode)void cloudSync();
+    });
   }
   if('serviceWorker'in navigator&&location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(err=>console.warn('Installazione offline non disponibile:',err)));}
   // Espone esclusivamente metadati non sensibili per diagnosi/versionamento.
