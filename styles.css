@@ -122,3 +122,63 @@ button.stat-card-link:after{content:'›';position:absolute;top:18px;right:17px;
 .section-back-btn:hover{background:#f3f0fb}
 .section-back-btn:focus-visible{outline:3px solid #8064c7;outline-offset:2px}
 @media(max-width:640px){button.stat-card-link:after{right:11px;top:10px;font-size:20px}.section-back{margin-bottom:10px}.section-back-btn{font-size:12px}}
+
+
+/* CasaFacile 1.3.0 — Famiglia, responsabilità e riassegnazioni rapide locali. */
+.family-dashboard-link{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:17px;margin-bottom:24px;background:linear-gradient(112deg,#fff 0%,#f5f1fc 100%);border-color:#ebe5f6}
+.family-dashboard-heading{display:flex;align-items:center;gap:13px;min-width:0;flex:1 1 230px}
+.family-dashboard-heading h3{font-size:15px;margin:0 0 5px;color:#4c4669}
+.family-dashboard-heading p{font-size:12px;color:#86809c;margin:0;line-height:1.5}
+.family-dashboard-icon{flex:0 0 48px;height:48px;border-radius:15px;display:grid;place-items:center;background:#e6ddf6;color:#7863b5}
+.family-dashboard-icon .icon{width:23px;height:23px}
+.family-stat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 18px}
+.family-small-stat{background:#fff;border:1px solid #f0f0f5;box-shadow:var(--shadow);border-radius:var(--radius);padding:17px 18px;min-width:0}
+.family-small-stat strong{display:block;font-size:29px;letter-spacing:-.8px;color:#4c4669;line-height:1.2}
+.family-small-stat span{display:block;font-size:11px;line-height:1.35;color:#9595a8;margin-top:6px}
+.family-privacy-notice{margin-bottom:18px}
+.family-workload{margin-bottom:18px}
+.family-load-row{display:flex;align-items:center;gap:12px;padding:8px 0}
+.family-load-name{min-width:70px;flex:0 0 100px;font-size:12px;color:#64637a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.family-load-track{height:11px;border-radius:20px;background:#f2eff9;overflow:hidden;flex:1}
+.family-load-track i{display:block;height:100%;border-radius:20px;min-width:0;transition:width .2s;background:#9d8dcf}
+.family-load-number{min-width:25px;text-align:right;font-size:12px;font-weight:800;color:#71688b}
+.family-person-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+.family-person-card{min-width:0}
+.family-person-head{display:flex;gap:12px;align-items:center;margin-bottom:17px}
+.family-person-heading{flex:1;min-width:0}
+.family-person-heading h3{font-size:16px;margin:0 0 4px;overflow-wrap:anywhere}
+.family-person-heading small{font-size:11px;color:#9b9aaf}
+.family-person-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.family-person-metrics span{background:#f8f6fc;border-radius:11px;padding:11px 8px;display:flex;flex-direction:column;gap:5px;color:#82819a;font-size:10px;line-height:1.35}
+.family-person-metrics strong{font-size:23px;line-height:1;font-weight:800;color:#8170ba}
+.family-person-metrics span:nth-child(2) strong{color:#c57a8c}
+.family-person-estimate{font-size:11px;color:#85849b;margin:14px 0 0;line-height:1.55}
+.family-person-section-title{font-size:13px;color:#5b5870;margin:20px 0 4px}
+.family-task-list{margin:0;padding:0;list-style:none}
+.family-task-line{border-bottom:1px solid #f0edf5;padding:12px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.family-task-line:last-child{border-bottom:0}
+.family-task-main{display:flex;flex-direction:column;min-width:0;gap:4px;flex:1 1 45%}
+.family-task-main strong{font-size:12px;color:#555269;overflow-wrap:anywhere}
+.family-task-info{font-size:10px;color:#9392a6}
+.family-assign-field{display:flex;flex-direction:column;gap:4px;flex:0 1 136px;min-width:95px;color:#9392a6;font-size:10px}
+.family-assign-field select{max-width:100%;width:100%;min-height:38px;border:1px solid #e4e2ef;border-radius:9px;padding:7px 23px 7px 8px;background:#fff;color:#605c77;font-size:12px}
+.family-assign-field select:focus-visible,.family-member-filter select:focus-visible{outline:2px solid #8b79c6;outline-offset:1px}
+.family-no-tasks{font-size:12px;color:#9695a7;line-height:1.5}
+.family-more{font-size:11px;color:#9291a5;margin:10px 0 0}
+.family-person-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:15px}
+.family-member-filter{display:flex;align-items:center;gap:8px;color:#75728d;font-size:12px;font-weight:700;flex-wrap:wrap}
+.family-member-filter select{min-height:36px;background:#fff;border:1px solid #ded9ec;border-radius:10px;padding:6px 25px 6px 10px;font-size:12px;min-width:130px;max-width:100%}
+.family-unassigned{margin-bottom:18px}
+@media(max-width:850px){.family-person-grid{grid-template-columns:1fr}.family-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:530px){
+  .family-dashboard-link>.btn{width:100%}
+  .family-stat-grid{gap:9px}
+  .family-small-stat{padding:14px 12px}
+  .family-small-stat strong{font-size:26px}
+  .family-load-name{flex-basis:85px;font-size:11px}
+  .family-load-row{gap:8px}
+  .family-person-metrics span{padding:10px 7px}
+  .family-person-actions>.btn{flex:1 1 auto}
+  .family-person-card{padding:17px}
+}
+@media(prefers-reduced-motion:reduce){.family-load-track i{transition:none}}
