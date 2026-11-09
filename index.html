@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#F7F7FC">
+  <meta name="description" content="CasaFacile: faccende, ricorrenze e organizzazione domestica in un'unica app.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CasaFacile">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css?v=1.0.0">
+  <title>CasaFacile · SEGNOTA Studio</title>
+</head>
+<body>
+<svg class="icon-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-house" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="m4 7 2 2 3-4M13 7h8M4 17l2 2 3-4m4 2h8"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></symbol>
+  <symbol id="i-room" viewBox="0 0 24 24"><path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16M2 21h20M9 21V8h6v13M12 14h.01"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3 3v18h18M8 16v-5m5 5V7m5 9V4"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M17 11a3 3 0 1 0 0-6m1 15v-2a5 5 0 0 0-2-4"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1-2 2-.1-.1a1.6 1.6 0 0 0-1.8-.3l-.2.1a1.6 1.6 0 0 0-1 1.5V21h-3v-.8a1.6 1.6 0 0 0-1-1.5l-.2-.1a1.6 1.6 0 0 0-1.8.3l-.1.1-2-2 .1-.1A1.6 1.6 0 0 0 7 15.1l-.1-.2a1.6 1.6 0 0 0-1.5-1H4v-3h1.4a1.6 1.6 0 0 0 1.5-1l.1-.2a1.6 1.6 0 0 0-.3-1.8l-.1-.1 2-2 .1.1a1.6 1.6 0 0 0 1.8.3l.2-.1a1.6 1.6 0 0 0 1-1.5V4h3v.6a1.6 1.6 0 0 0 1 1.5l.2.1a1.6 1.6 0 0 0 1.8-.3l.1-.1 2 2-.1.1a1.6 1.6 0 0 0-.3 1.8l.1.2a1.6 1.6 0 0 0 1.5 1H21v3h-.7a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 4h.01"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16m-14 0 1 14h10l1-14M9 7V4h6v3m-5 4v6m4-6v6"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="m4 20 4.5-1 11-11a2 2 0 0 0-3-3l-11 11L4 20zm10-13 3 3"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 18v3h16v-3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 17v4h16v-4"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.3 7.7L22 12l-7.7 2.3L12 22l-2.3-7.7L2 12l7.7-2.3z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-7-7 7 7-7 7"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 2 9 4v6c0 6-4 9-9 10-5-1-9-4-9-10V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 16a8 8 0 0 1-12-12A8.5 8.5 0 1 0 20 16z"/></symbol>
+  <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v12h14V9m-10 5h6"/></symbol>
+</svg>
+<div class="app-shell">
+ <aside class="sidebar">
+  <a class="brand" href="#dashboard" aria-label="CasaFacile, dashboard">
+   <span class="brand-logo"><svg class="icon"><use href="#i-house"/></svg></span>
+   <span class="brand-word"><strong>CasaFacile<span class="brand-dot">.</span></strong><small>La casa in armonia</small></span>
+  </a>
+  <div class="sidebar-label">IL TUO SPAZIO</div>
+  <nav id="side-nav" class="side-nav" aria-label="Navigazione principale"></nav>
+  <div class="sidebar-bottom">
+   <div class="sidebar-tip"><span class="tip-icon"><svg class="icon"><use href="#i-sparkle"/></svg></span><strong>Un po' ogni giorno.</strong><p>La casa perfetta non esiste, una routine serena sì.</p></div>
+   <div class="sidebar-credit">Un progetto di <strong>SEGNOTA Studio</strong><br><span>CasaFacile v1.0.0</span></div>
+  </div>
+ </aside>
+ <div class="main-wrap">
+  <header class="topbar">
+   <div class="topbar-left"><span class="mobile-logo"><svg class="icon"><use href="#i-house"/></svg></span><div><span class="topbar-label">IL TUO SPAZIO</span><h1 id="page-title">Panoramica</h1></div></div>
+   <div class="topbar-actions"><span id="date-label" class="date-label"></span><span class="avatar" id="avatar" title="Profilo personale">IO</span></div>
+  </header>
+  <main id="content" class="main-content" tabindex="-1"></main>
+  <footer class="app-footer">CasaFacile 1.0.0 <span>·</span> Ideato e sviluppato da <strong>SEGNOTA Studio</strong> <span>·</span> Dati salvati sul tuo dispositivo</footer>
+ </div>
+ <nav class="mobile-nav" id="mobile-nav" aria-label="Navigazione mobile"></nav>
+ <button id="mobile-fab" class="fab" type="button" aria-label="Nuova attività"><svg class="icon"><use href="#i-plus"/></svg></button>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root" class="toast-root" aria-live="polite"></div>
+<input type="file" id="import-file" accept=".json,application/json" hidden>
+<script src="./app.js?v=1.0.0" defer></script>
+</body>
+</html>
