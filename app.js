@@ -1,8 +1,8 @@
-/* CasaFacile 1.3.2 — SEGNOTA Studio — personal-first PWA
+/* CasaFacile 1.4.0-beta — SEGNOTA Studio — personal-first PWA
    Persistenza isolata per household; repository sostituibile con adapter cloud futuro. */
 (() => {
   'use strict';
-  const VERSION = '1.3.2';
+  const VERSION = '1.4.0-beta';
   const STORAGE_KEY = 'casafacile.v1.database';
   const ROLLBACK_KEY = 'casafacile.v1.prima-importazione';
   const NAV = [
@@ -40,9 +40,56 @@
   };}
   function validDB(x){return x && x.app==='CasaFacile' && x.schemaVersion===1 && x.household && typeof x.household.id==='string' && Array.isArray(x.members) && x.members.length>0 && Array.isArray(x.rooms) && Array.isArray(x.chores) && Array.isArray(x.history) && x.settings && typeof x.settings==='object' && x.chores.length<=30000 && x.history.length<=100000 && x.rooms.length<=1000 && x.members.length<=1000 && x.chores.every(t=>t && typeof t.id==='string' && typeof t.title==='string' && validDate(t.dueDate) && ['none','daily','weekly','monthly'].includes(t.repeat?.freq)) && x.history.every(h=>h && typeof h.id==='string' && typeof h.taskId==='string' && typeof h.completedAt==='string');}
   // Il contratto di persistenza è unico: si potrà sostituire con repository cloud senza riscrivere la UI.
-  const repository={kind:'local',load(){try{const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return null;const parsed=JSON.parse(raw);return validDB(parsed)?parsed:null;}catch{return null;}},save(data){localStorage.setItem(STORAGE_KEY,JSON.stringify(data));}};
+
+  const CLOUD_MODE_KEY='casafacile.v1.cloud.mode';
+  const CLOUD_CACHE_PREFIX='casafacile.v1.cloud.snapshot.';
+  const cloudService=window.CasaFacileCloud||null;
+  const cloudAvailable=()=>Boolean(cloudService?.available?.());
+  const readJson=(key)=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):null;}catch{return null;}};
+  let cloudMode=readJson(CLOUD_MODE_KEY);
+  if(!cloudMode||typeof cloudMode.id!=='string'||!/^[0-9a-f-]{36}$/i.test(cloudMode.id)||
+     !['owner','editor','viewer'].includes(cloudMode.role)){
+    cloudMode=null;
+  }
+  let cloudUser=null,cloudGroups=[],cloudTeam=[],cloudInvitations=[];
+  let cloudError='',cloudBusy=false,cloudOtpEmail='',cloudInviteUrl='',cloudPendingInvite=null;
+  let cloudSyncing=false,cloudSyncTimer=null,cloudMutations=0,cloudLastSync=null;
+  const sharedKey=(id)=>CLOUD_CACHE_PREFIX+id;
+  function persistCloudMode(){
+    if(cloudMode)localStorage.setItem(CLOUD_MODE_KEY,JSON.stringify(cloudMode));
+    else localStorage.removeItem(CLOUD_MODE_KEY);
+  }
+  const repository={
+    kind:'local',
+    loadLocal(){const x=readJson(STORAGE_KEY);return validDB(x)?x:null;},
+    load(){
+      if(cloudMode){
+        const cached=readJson(sharedKey(cloudMode.id));
+        if(validDB(cached))return cached;
+        cloudMode=null;
+        try{persistCloudMode();}catch{}
+      }
+      return this.loadLocal();
+    },
+    save(data){
+      if(cloudMode){
+        if(cloudMode.role==='viewer')throw new Error('Profilo condiviso di sola lettura');
+        localStorage.setItem(sharedKey(cloudMode.id),JSON.stringify(data));
+        cloudMode.dirty=true;
+        cloudMode.conflict=false;
+        cloudMutations++;
+        persistCloudMode();
+        cloudScheduleSync();
+      }else{
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+      }
+    }
+  };
   let db=repository.load();
-  if(!db){db=makeDB();try{repository.save(db);}catch(err){console.error('Salvataggio non disponibile',err);}}
+  if(!db){
+    db=makeDB();
+    try{repository.save(db);}catch(err){console.error('Salvataggio non disponibile',err);}
+  }
   let page='dashboard',taskFilter='all',memberFilter='all',taskSearch='',monthCursor=TODAY().slice(0,7),selectedDay=TODAY();
   let currentRoom=null, completionToken=null, toastTimer=null, pendingImport=null;
   let sectionTrail=[], lastSection=pageFromHash(), suppressTrailTarget=null;
@@ -505,7 +552,7 @@
       +cards;
   }
   function renderSettings(){return `${header('Impostazioni','Personalizza CasaFacile e proteggi i tuoi dati.')}<div class="content-grid"><section class="panel"><div class="setting-group"><h3>Il tuo profilo</h3><p>Personalizza il messaggio di benvenuto e il nome della casa.</p><form id="settings-form" class="form-grid"><div class="field"><label for="display-name">Come vuoi essere chiamato?</label><input id="display-name" name="displayName" maxlength="32" value="${esc(db.settings.displayName||'')}" placeholder="Il tuo nome"></div><div class="field"><label for="home-name">Nome della casa</label><input id="home-name" name="homeName" maxlength="48" required value="${esc(db.household.name)}"></div><div class="field full"><button type="submit" class="btn btn-primary" style="align-self:flex-start">${ico('check')} Salva preferenze</button></div></form></div><div class="setting-group"><h3>Organizzazione</h3><div class="setting-row"><div><strong>Ambienti</strong><small>Personalizza gli spazi della casa</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="rooms">Gestisci</button></div><div class="setting-row"><div><strong>Routine preimpostate</strong><small>24 faccende pronte, aggiungi solo quelle che vuoi</small></div><button class="btn btn-outline btn-sm" data-action="open-routines">Scegli</button></div><div class="setting-row"><div><strong>Famiglia</strong><small>Responsabilità e assegnazioni locali</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="people">Gestisci</button></div><div class="setting-row"><div><strong>Centro promemoria</strong><small>Attività arretrate, di oggi e dei prossimi 3 giorni</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="reminders">Visualizza</button></div><div class="setting-row"><div><strong>Statistiche</strong><small>Andamento delle faccende completate</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="stats">Visualizza</button></div></div></section><section class="panel"><div class="setting-group"><h3>Backup e ripristino</h3><p>Le informazioni sono salvate soltanto in questo browser. Il backup manuale è necessario per trasferirle o recuperarle.</p><div class="action-row"><button class="btn btn-primary" data-action="export">${ico('download')} Esporta backup</button><button class="btn btn-outline" data-action="import">${ico('upload')} Importa backup</button></div><div class="footer-note">Il file JSON include ambienti, persone, faccende e storico; se disponibile, contiene una verifica di integrità SHA-256.</div>${localStorage.getItem(ROLLBACK_KEY)?`<div class="setting-row"><div><strong>Annulla l'ultima importazione</strong><small>Ripristina i dati precedenti all'ultimo import.</small></div><button class="btn btn-outline btn-sm" data-action="restore-import">Ripristina</button></div>`:''}</div><div class="setting-group"><h3>Dati e versione</h3><div class="setting-row"><div><strong>Versione</strong><small>CasaFacile ${VERSION}</small></div><span class="version">PWA</span></div><div class="setting-row"><div><strong>Archivio</strong><small>${db.chores.length} attività · ${db.history.length} completamenti</small></div><span class="version">Locale</span></div><div class="setting-row"><div><strong>Modalità</strong><small>Predisposta per account e cloud futuri</small></div><span class="version">Personale</span></div></div><div class="notice">${ico('shield')}<div><strong>Privacy by design.</strong><br>Nessuna registrazione, pubblicità, analytics o trasferimento dei dati a un server in questa versione. Non cancellare i dati di Safari senza aver prima esportato un backup.</div></div><div class="footer-note">Ideato e sviluppato da <strong>SEGNOTA Studio</strong>.</div></section></div>`;}
-  function render(){page=pageFromHash();if(memberFilter!=='all'&&!memberById(memberFilter))memberFilter='all';renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',reminders:'Promemoria',people:'Famiglia',sharing:'Condivisioni',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();const shared=sharingSnapshot().connected;el('top-sharing-count').textContent=String(shared);el('top-sharing').setAttribute('aria-label','Apri Condivisioni: '+shared+' accessi condivisi');el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'reminders':html=renderReminders();break;case'people':html=renderPeople();break;case'sharing':html=renderSharing();break;case'settings':html=renderSettings();break;}el('content').innerHTML=(page==='dashboard'?'':backButton())+html;if(page==='tasks')renderTaskResults();}
+  function render(){page=pageFromHash();if(memberFilter!=='all'&&!memberById(memberFilter))memberFilter='all';renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',reminders:'Promemoria',people:'Famiglia',sharing:'Condivisioni',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();const shared=sharingSnapshot().connected;el('top-sharing-count').textContent=shared===null?'–':String(shared);el('top-sharing').setAttribute('aria-label','Apri Condivisioni: '+(shared===null?'stato non verificato':shared+' accessi condivisi'));el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'reminders':html=renderReminders();break;case'people':html=renderPeople();break;case'sharing':html=renderSharing();break;case'settings':html=renderSettings();break;}el('content').innerHTML=(page==='dashboard'?'':backButton())+html;if(page==='tasks')renderTaskResults();}
   function nextDate(date,repeat){if(repeat.freq==='none')return null;const n=Math.max(1,Math.min(365,Number(repeat.interval)||1));if(repeat.freq==='daily')return plusDays(date,n);if(repeat.freq==='weekly')return plusDays(date,n*7);return plusMonths(date,n,repeat.anchorDay||Number(date.slice(-2)));}
   function afterCompletion(t){let next=nextDate(t.dueDate,t.repeat),loops=0;while(next&&next<=TODAY()&&loops++<2000)next=nextDate(next,t.repeat);return next;}
   function completeTask(id){const t=db.chores.find(x=>x.id===id);if(!t||t.done)return;const event={id:uid(),taskId:t.id,householdId:db.household.id,title:t.title,roomId:t.roomId,roomName:roomById(t.roomId)?.name||'Altro',memberId:t.memberId,memberName:memberById(t.memberId)?.name||'Io',minutes:t.minutes||0,plannedDate:t.dueDate,completedAt:nowISO()};const next=afterCompletion(t);if(next){t.dueDate=next;}else{t.done=true;t.completedAt=event.completedAt;}t.updatedAt=nowISO();db.history.push(event);completionToken=event.id;save();render();toast(next?`Completata! Prossima scadenza: ${prettyDate(next)}`:'Attività completata.');}
