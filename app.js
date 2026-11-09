@@ -51,7 +51,7 @@
      !['owner','editor','viewer'].includes(cloudMode.role)){
     cloudMode=null;
   }
-  let cloudUser=null,cloudGroups=[],cloudTeam=[],cloudInvitations=[];
+  let cloudUser=null,cloudGroups=[],cloudTeam=[],cloudInvitations=[],cloudBackups=[];
   let cloudError='',cloudBusy=false,cloudOtpEmail='',cloudInviteUrl='',cloudPendingInvite=null;
   let cloudSyncing=false,cloudSyncTimer=null,cloudMutations=0,cloudLastSync=null;
   const sharedKey=(id)=>CLOUD_CACHE_PREFIX+id;
@@ -399,6 +399,9 @@
       if(!remote.role)throw new Error('Accesso alla famiglia non più disponibile');
       cloudMode.role=remote.role;
       cloudTeam=remote.members;
+      if(page==='sharing'&&!cloudMode.dirty){
+        try{cloudBackups=await cloudService.listBackups(id);}catch(e){console.warn('Elenco backup non disponibile',e);}
+      }
       if(!validDB(remote.snapshot))throw new Error('La copia condivisa non è valida: sincronizzazione interrotta.');
       const remoteRev=Number(remote.revision),localRev=Number(cloudMode.revision);
       if(!Number.isSafeInteger(remoteRev)||remoteRev<1||!Number.isSafeInteger(localRev)||localRev<1)
@@ -445,7 +448,7 @@
       return;
     }
     cloudMode=null;
-    cloudTeam=[];
+    cloudTeam=[];cloudBackups=[];
     persistCloudMode();
     const personal=repository.loadLocal();
     db=personal||makeDB();
@@ -473,6 +476,7 @@
     persistCloudMode();
     db=JSON.parse(JSON.stringify(cached?localCache:remote.snapshot));
     cloudTeam=remote.members;
+    try{cloudBackups=await cloudService.listBackups(id);}catch(e){cloudBackups=[];console.warn('Elenco backup non disponibile',e);}
     cloudError='';
     cloudLastSync=new Date().toISOString();
     taskFilter='all';memberFilter='all';currentRoom=null;
@@ -522,12 +526,11 @@
     const errors=cloudError?'<p class="cloud-error" role="alert">'+esc(cloudError)+'</p>':'';
     const inviteNote=cloudPendingInvite?'<p class="cloud-notice">È presente un invito destinato a un indirizzo email specifico. Accedi con quell’indirizzo per poterlo accettare.</p>':'';
     if(!cloudUser){
-      return '<section class="panel cloud-panel"><h3>Accedi alla condivisione</h3>'
-        +'<p>Ricevi un codice monouso via email. Non serve una password.</p>'
-        +'<form id="cloud-email-form" class="cloud-inline-form"><label>Email verificata <input type="email" name="email" required maxlength="254" autocomplete="email" placeholder="nome@esempio.it" value="'+esc(cloudOtpEmail)+'"></label>'
-        +'<button class="btn btn-primary" type="submit">Invia codice</button></form>'
-        +(cloudOtpEmail?'<form id="cloud-code-form" class="cloud-inline-form"><label>Codice ricevuto <input type="text" name="token" required minlength="6" maxlength="8" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}"></label>'
-          +'<button class="btn btn-soft" type="submit">Verifica e accedi</button></form>':'')
+      return '<section class="panel cloud-panel"><h3>Cloudflare Access — verifica accesso</h3>'
+        +'<p>Cloudflare Access gestisce il codice email nella schermata di accesso al sito protetto. '
+        +'CasaFacile non richiede né conserva password o codici OTP.</p>'
+        +'<p>Se non hai effettuato l’accesso, riapri la pagina Cloudflare protetta con la tua email autorizzata.</p>'
+        +'<button type="button" class="btn btn-soft" data-action="cloud-refresh">Ricontrolla accesso</button>'
         +inviteNote+progress+errors+'</section>';
     }
     const groups='<section class="panel cloud-panel"><div class="panel-head"><h3>Famiglie disponibili</h3>'
@@ -573,6 +576,12 @@
       +'<button class="btn btn-outline" data-action="cloud-local">Torna alla casa personale</button>'
       +(cloudMode.role!=='owner'?'<button class="btn btn-outline" data-action="cloud-leave">Esci dalla famiglia</button>':'')+'</div>'
       +'<h4>Accessi alla famiglia</h4>'+team+inviteForm
+      +'<h4>Backup automatici cloud</h4><p>Una copia R2 verificabile viene creata insieme a ogni revisione confermata.</p>'
+      +(cloudBackups.length?cloudBackups.slice(0,10).map(x=>'<div class="cloud-house-row"><div><strong>Revisione '+esc(x.revision)+'</strong>'
+      +'<small>'+esc(x.created_at)+' · '+Math.round(Number(x.bytes)/1024)+' KB</small></div>'
+      +'<button type="button" class="btn btn-outline btn-sm" data-action="cloud-download-backup" data-id="'+esc(x.id)+'">Esporta</button>'
+      +(cloudMode.role==='owner'?'<button type="button" class="btn btn-soft btn-sm" data-action="cloud-restore-backup" data-id="'+esc(x.id)+'">Ripristina</button>':'')
+      +'</div>').join(''):'<p>Nessuna copia elencata. Verifica l’accesso al servizio.</p>')
       +'</section>'+groups+progress+errors;
   }
 
@@ -994,7 +1003,7 @@
       if(cloudMode?.dirty)throw new Error('Sincronizza prima le modifiche condivise.');
       if(cloudMode)cloudSwitchPersonal();
       await cloudService.logout();
-      cloudUser=null;cloudGroups=[];cloudTeam=[];cloudInvitations=[];cloudInviteUrl='';
+      cloudUser=null;cloudGroups=[];cloudTeam=[];cloudInvitations=[];cloudBackups=[];cloudInviteUrl='';
     });break;
     case'cloud-sync':await cloudAction('Sincronizzazione',async()=>{
       await cloudSync();
@@ -1016,7 +1025,7 @@
     });break;
     case'cloud-revoke-invite':await cloudAction('Revoca invito',async()=>{
       if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può revocare.');
-      await cloudService.revokeInvitation(id);
+      await cloudService.revokeInvitationForHousehold(cloudMode.id,id);
       cloudInvitations=await cloudService.listInvitations(cloudMode.id);
     });break;
     case'cloud-leave':await cloudAction('Uscita dalla famiglia',async()=>{
@@ -1027,6 +1036,20 @@
       await cloudService.leaveHousehold(activeId);
       cloudSwitchPersonal();
       await cloudReloadGroups();
+    });break;
+    case'cloud-download-backup':await cloudAction('Backup cloud',async()=>{
+      if(!cloudMode)throw new Error('Nessuna famiglia attiva.');
+      await cloudService.downloadBackup(cloudMode.id,id);
+      toast('Backup cloud scaricato.');
+    });break;
+    case'cloud-restore-backup':await cloudAction('Ripristino backup cloud',async()=>{
+      if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può ripristinare.');
+      if(cloudMode.dirty)throw new Error('Sincronizza prima le modifiche locali.');
+      if(!confirm('Ripristinare questa revisione per tutta la famiglia? Verrà creata una nuova revisione e un nuovo backup.'))return;
+      await cloudService.restoreBackup(cloudMode.id,id,cloudMode.revision);
+      await cloudSync();
+      cloudBackups=await cloudService.listBackups(cloudMode.id);
+      toast('Ripristino completato: nuova revisione condivisa.');
     });break;
     case'cloud-copy-invite':try{
       const input=el('cloud-invite-url');if(!input)break;
@@ -1040,38 +1063,19 @@
 case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'go-back':goBack();break;case'dashboard-summary':openDashboardSummary(b.dataset.filter);break;case'view-tasks':taskFilter='all';memberFilter='all';go('tasks');break;case'family-view-tasks':goFamilyTasks(id);break;case'family-new-task':if(memberById(id))openTaskModal(null,null,id);break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'open-task-filter':taskFilter=b.dataset.filter;memberFilter='all';taskSearch='';go('tasks');break;case'stats-range':statsPeriod=Number(b.dataset.days)===30?30:7;statsSelectedBar=null;render();break;case'stats-bar':statsSelectedBar=Number(b.dataset.bar);render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
   document.addEventListener('submit',e=>{
     const form=e.target;
-    if(['cloud-email-form','cloud-code-form','cloud-invite-form'].includes(form.id)){
+    if(form.id==='cloud-invite-form'){
       e.preventDefault();
       const fields=new FormData(form);
-      if(form.id==='cloud-email-form'){
-        const email=String(fields.get('email')||'').trim().toLowerCase();
-        void cloudAction('Invio codice',async()=>{
-          await cloudService.sendOtp(email);cloudOtpEmail=email;
-          toast('Controlla la posta elettronica per il codice.');
-        });
-      }
-      if(form.id==='cloud-code-form'){
-        const token=String(fields.get('token')||'').trim();
-        void cloudAction('Accesso',async()=>{
-          await cloudService.verifyOtp(cloudOtpEmail,token);
-          cloudUser=await cloudService.user();cloudOtpEmail='';
-          await cloudReloadGroups();
-          if(cloudMode)await cloudSync();
-          toast('Accesso effettuato.');
-        });
-      }
-      if(form.id==='cloud-invite-form'){
-        const email=String(fields.get('email')||'').trim().toLowerCase();
-        const role=String(fields.get('role')||'editor');
-        void cloudAction('Creazione invito',async()=>{
-          if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può invitare.');
-          const invite=await cloudService.createInvitation(cloudMode.id,email,role);
-          if(!invite?.invitation_token)throw new Error('Invito non generato.');
-          cloudInviteUrl=location.origin+location.pathname+'?invite='+invite.invitation_token+'#sharing';
-          cloudInvitations=await cloudService.listInvitations(cloudMode.id);
-          toast('Link di invito pronto.');
-        });
-      }
+      const email=String(fields.get('email')||'').trim().toLowerCase();
+      const role=String(fields.get('role')||'editor');
+      void cloudAction('Creazione invito',async()=>{
+        if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può invitare.');
+        const invite=await cloudService.createInvitation(cloudMode.id,email,role);
+        if(!invite?.invitation_token)throw new Error('Invito non generato.');
+        cloudInviteUrl=location.origin+location.pathname+location.search+'#sharing?invite='+invite.invitation_token;
+        cloudInvitations=await cloudService.listInvitations(cloudMode.id);
+        toast('Link di invito pronto.');
+      });
       return;
     }
     if(!['task-form','room-form','person-form','settings-form'].includes(form.id))return;
