@@ -56,16 +56,16 @@ test('famiglia visibile nella navigazione mobile e schermata condivisione raggiu
   assert.match(html,/id="top-sharing"/);
   assert.match(html,/data-action="nav" data-page="sharing"/);
   assert.match(html,/id="top-sharing-count"/);
-  assert.match(app,/el\('top-sharing-count'\)\.textContent=String\(shared\)/);
+  assert.ok(app.includes("el('top-sharing-count').textContent=shared===null?'–':String(shared)"));
   assert.match(app,/key==='sharing'\?'Condivisi':label/);
 
   assert.match(app,/case'sharing':html=renderSharing\(\)/);
   assert.match(css,/\.sharing-dashboard-card\{/);
   assert.match(css,/\.mobile-nav a\{min-width:0;flex:1 1 0/);
-  assert.match(app,/const VERSION = '1\.3\.2'/);
+  assert.match(app,/const VERSION = '1\.4\.0-beta'/);
   assert.match(app,/const STORAGE_KEY = 'casafacile\.v1\.database'/);
   assert.match(app,/schemaVersion:1/);
-  assert.match(html,/app\.js\?v=1\.3\.2/);
-  assert.match(html,/styles\.css\?v=1\.3\.2/);
-  assert.match(sw,/casafacile-static-1\.3\.2/);
+  assert.match(html,/app\.js\?v=1\.4\.0-beta/);
+  assert.match(html,/styles\.css\?v=1\.4\.0-beta/);
+  assert.match(sw,/casafacile-static-1\.4\.0-beta/);
 });
