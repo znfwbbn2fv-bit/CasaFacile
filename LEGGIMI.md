@@ -1,4 +1,4 @@
-# CasaFacile 1.3.0 — SEGNOTA Studio
+# CasaFacile 1.3.1 — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -95,3 +95,10 @@ I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attivit
 - Il totale di attività entro sette giorni include anche quelle già arretrate. I tempi sono stime derivate dalla durata registrata, non cronometraggi.
 - Persone e assegnazioni restano **locali** e non sincronizzate. Non esistono account o inviti e non è attivo alcun accesso remoto.
 - **Retrocompatibilità:** invariati schemaVersion 1, chiave `casafacile.v1.database` e struttura dell'esportazione JSON. Si consiglia sempre un backup prima dell'aggiornamento. 
+
+## CasaFacile 1.3.1 — Condivisioni e navigazione su iPhone
+
+- Barra inferiore iPhone: accesso diretto a **Famiglia** (6 destinazioni: Panoramica, Attività, Calendario, Ambienti, Famiglia, Impostazioni).
+- Nuovo riquadro **Accessi e condivisioni** in Panoramica, selezionabile, con conteggi distinti: **accessi condivisi (0)** e **persone configurate localmente (db.members.length)**.
+- La nuova pagina **Condivisioni** elenca i nomi inseriti su questo dispositivo e segnala **Solo locale** per ciascuno. Non si affermano connessioni attive: senza account e sincronizzazione gli accessi remoti non sono supportati e il conteggio resta zero.
+- Il tasto **Gestisci Famiglia** porta alla pagina di assegnazione delle attività. Nessuna nuova struttura dati o modifica alla chiave locale; backup JSON precedenti compatibili.
