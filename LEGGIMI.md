@@ -1,4 +1,4 @@
-# CasaFacile 1.3.2 — SEGNOTA Studio
+# CasaFacile 1.4.0-beta — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -117,3 +117,21 @@ I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attivit
 - Toccando il pulsante si apre la sezione **Condivisioni**, che distingue accessi remoti e persone configurate in locale.
 - La barra inferiore dell'iPhone mostra anche la scheda **Condivisi** (etichetta breve di Condivisioni), oltre alle sezioni già presenti. Il riquadro cliccabile nella Dashboard resta disponibile.
 - Nessuna modifica al database locale, al formato backup, ai permessi o alla sincronizzazione. Non è stata attivata alcuna condivisione reale.
+
+
+## CasaFacile 1.4.0-beta — modalità famiglia con backend opzionale
+
+Questa versione è **di sviluppo** e non sostituisce la 1.3.2 pubblicata. Richiede l'attivazione manuale del backend **Supabase** e non è abilitata con i valori vuoti di \`cloud-config.js\`.
+
+- Accesso email con codice OTP, inviti monouso legati alla stessa email verificata, durata di 7 giorni, revoca e ruoli owner/editor/viewer.
+- Tabella PostgreSQL separata per famiglie, membership, inviti e snapshot con RLS e privilegi SQL; le mutazioni passano da RPC controllate.
+- Modello a **revisione ottimistica (CAS)**: un dispositivo non può sovrascrivere silenziosamente modifiche remote. In caso di conflitto, i dati locali in sospeso sono conservati. La riconciliazione manuale di conflitti rimane da sviluppare.
+- Modalità personale isolata dalla copia condivisa. L'attivazione di una famiglia crea **un nuovo archivio condiviso** senza migrare o cancellare automaticamente quello personale. Le modifiche cloud restano in una cache locale diversa.
+- Sincronizzazione iniziale, automatica dopo modifiche, al ritorno online e ogni 30 secondi mentre l'app è aperta; **non ci sono notifiche push** o sincronizzazione in background a PWA chiusa.
+- I membri con ruolo *viewer* hanno sola lettura nel database e blocco delle azioni di modifica nell'interfaccia. La membership cloud è distinta dai nomi locali ai quali si assegnano le faccende.
+- Il contatore Condivisi indica gli **altri account autorizzati**, non utenti online; lo stato non verificato viene rappresentato con “–”.
+- Password, JWT, OTP e URL di invito non devono mai essere salvati dentro lo snapshot; i segreti non devono essere pubblicati.
+- Il formato backup JSON e la chiave personale \`casafacile.v1.database\` non cambiano.
+- **Limiti beta:** test database/RLS da eseguire su Supabase configurato, gestione dei conflitti manuali e verifica multi-device mancanti; l'archivio condiviso è un documento unitario (non merge per-attività); revocare l'accesso non può cancellare una copia già salvata offline su un dispositivo.
+
+Consulta \`docs/CLOUD_SETUP.md\` per i passaggi di configurazione e collaudo prima di un rilascio.
