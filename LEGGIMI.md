@@ -1,4 +1,4 @@
-# CasaFacile 1.2.0 — SEGNOTA Studio
+# CasaFacile 1.2.1 — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -81,3 +81,7 @@ La struttura dei dati resta **schemaVersion 1** e la chiave localStorage resta *
 - **Statistiche:** intervalli degli ultimi 7 o 30 giorni, gruppi giornalieri o di 5 giorni, barre interattive selezionabili che mostrano conteggi e minuti, ambienti, giornate con almeno un completamento. I minuti sono *stime*, non un cronometraggio.
 - **Promemoria:** nuova pagina con attività in ritardo, in scadenza oggi ed entro 3 giorni, accessibile dalla dashboard, da Impostazioni e dalla navigazione desktop. Gli avvisi sono **soltanto interni all'app**; non vengono inviate notifiche push quando CasaFacile è chiusa.
 - **Privacy e compatibilità:** nessuna chiamata remota, la chiave `casafacile.v1.database` e `schemaVersion:1` restano invariati; sono leggibili i backup precedenti. Backup consigliato prima dell'aggiornamento.
+
+## Nuovo nella 1.2.1: navigazione dashboard
+
+I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attività dovute oggi o scadute), **Completate oggi** (storico effettivo dei completamenti, incluse le routine già riprogrammate), **Programmate** (attività con scadenza futura), **In ritardo** (attività scadute). Ogni sezione diversa dalla Panoramica espone un pulsante **Indietro** per tornare alla sezione precedente; dagli ambienti dettagliati si torna prima all'elenco ambienti. Nessuna migrazione né modifica dei dati.
