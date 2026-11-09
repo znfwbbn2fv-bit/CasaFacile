@@ -251,11 +251,16 @@ async function readBackup(env,id,email,backupId){
   return {row,snapshot,contents};
 }
 async function downloadBackup(env,id,email,backupId){
-  const {row,contents}=await readBackup(env,id,email,backupId);
+  const {row,contents,snapshot}=await readBackup(env,id,email,backupId);
+  // Match the original CasaFacile JSON import contract, including payload integrity proof.
+  const envelope={format:'CasaFacile-Backup',exportedAt:row.created_at,
+    appVersion:'1.4.0-beta',hashAlgorithm:'SHA-256',
+    hash:row.sha256,payload:snapshot};
+  const exported=JSON.stringify(envelope,null,2);
   const filename='CasaFacile_backup_revisione_'+row.revision+'.json';
-  return new Response(contents,{headers:{
+  return new Response(exported,{headers:{
     ...okHeaders,'content-disposition':'attachment; filename="'+filename+'"',
-    'x-backup-sha256':row.sha256
+    'x-backup-sha256':await sha256(exported)
   }});
 }
 async function restoreBackup(env,id,email,payload){
