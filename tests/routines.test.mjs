@@ -36,10 +36,10 @@ test('ricorrenze e scadenze iniziali coerenti',()=>{
 test('archivio locale invariato e risorse versionate',()=>{
  assert.match(app,/const STORAGE_KEY = 'casafacile\.v1\.database'/);
  assert.match(app,/schemaVersion:1/);
- assert.match(app,/const VERSION = '1\.3\.2'/);
- assert.match(html,/styles\.css\?v=1\.3\.2/);
- assert.match(html,/app\.js\?v=1\.3\.2/);
- assert.match(sw,/casafacile-static-1\.3\.2/);
+ assert.match(app,/const VERSION = '1\.4\.0-beta'/);
+ assert.match(html,/styles\.css\?v=1\.4\.0-beta/);
+ assert.match(html,/app\.js\?v=1\.4\.0-beta/);
+ assert.match(sw,/casafacile-static-1\.4\.0-beta/);
  assert.match(app,/routineAlreadyExists\(p\)/);
  assert.match(app,/repository\.save\(copy\)/);
 });
