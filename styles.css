@@ -7,3 +7,14 @@
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 
 .hero-credit{display:block;margin-top:11px;font-size:10px;font-weight:750;letter-spacing:.3px;color:#9282af}
+
+/* CasaFacile 1.0.1 — modulo attività accessibile e scorrevole in iOS PWA. */
+.modal-backdrop{top:var(--modal-viewport-top,0px);bottom:auto;height:var(--modal-viewport-height,100dvh);overflow:hidden}
+.modal.task-modal{display:flex;flex-direction:column;overflow:hidden;max-height:min(900px,calc(var(--modal-viewport-height,100dvh) - 28px));padding-bottom:12px}
+.modal.task-modal .modal-head{flex:0 0 auto}
+.modal.task-modal #task-form{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;align-content:start;grid-auto-rows:max-content;padding:2px 4px 14px 1px}
+.modal.task-modal .modal-sticky-actions{flex:0 0 auto;background:#fff;border-top:1px solid #edeef4;padding:12px 0 max(3px,var(--safe-bottom));box-shadow:0 -6px 16px rgba(61,62,104,.035)}
+.modal.task-modal .modal-bottom{margin:0;display:flex;flex-wrap:nowrap;justify-content:space-between}
+.modal.task-modal .modal-bottom .btn{flex:1 1 0;min-width:0}
+@media(max-width:850px){.field input,.field select,.field textarea,.search-wrap input{font-size:16px}}
+@media(max-width:640px){.modal-backdrop{padding:12px}.modal.task-modal{max-height:calc(var(--modal-viewport-height,100dvh) - 24px);padding:18px 16px 10px}.modal.task-modal .modal-head{margin-bottom:12px}.modal.task-modal .modal-sticky-actions{padding-top:10px}.modal.task-modal .modal-bottom .btn{font-size:14px}}

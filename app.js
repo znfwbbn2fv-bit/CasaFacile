@@ -1,8 +1,8 @@
-/* CasaFacile 1.0.0 — SEGNOTA Studio — personal-first PWA
+/* CasaFacile 1.0.1 — SEGNOTA Studio — personal-first PWA
    Persistenza isolata per household; repository sostituibile con adapter cloud futuro. */
 (() => {
   'use strict';
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   const STORAGE_KEY = 'casafacile.v1.database';
   const ROLLBACK_KEY = 'casafacile.v1.prima-importazione';
   const NAV = [
@@ -99,7 +99,43 @@
   function completeTask(id){const t=db.chores.find(x=>x.id===id);if(!t||t.done)return;const event={id:uid(),taskId:t.id,householdId:db.household.id,title:t.title,roomId:t.roomId,roomName:roomById(t.roomId)?.name||'Altro',memberId:t.memberId,memberName:memberById(t.memberId)?.name||'Io',minutes:t.minutes||0,plannedDate:t.dueDate,completedAt:nowISO()};const next=afterCompletion(t);if(next){t.dueDate=next;}else{t.done=true;t.completedAt=event.completedAt;}t.updatedAt=nowISO();db.history.push(event);completionToken=event.id;save();render();toast(next?`Completata! Prossima scadenza: ${prettyDate(next)}`:'Attività completata.');}
   function reopenTask(id){const t=db.chores.find(x=>x.id===id);if(!t||!t.done)return;const ix=db.history.findLastIndex(h=>h.taskId===id);if(ix>=0)db.history.splice(ix,1);t.done=false;t.completedAt=null;t.updatedAt=nowISO();save();render();toast('Attività riaperta.');}
   function undoLastCompletion(eventId){const event=db.history.find(h=>h.id===eventId);if(!event)return false;const task=db.chores.find(t=>t.id===event.taskId);const latest=[...db.history].reverse().find(h=>h.taskId===event.taskId);if(!task||latest?.id!==event.id)return false;task.done=false;task.completedAt=null;task.dueDate=event.plannedDate;db.history=db.history.filter(h=>h.id!==eventId);save();render();return true;}
-  function modal(content,small=false){el('modal-root').innerHTML=`<div class="modal-backdrop" data-action="close-backdrop"><div class="modal ${small?'modal-sm':''}" role="dialog" aria-modal="true" aria-label="Finestra di CasaFacile">${content}</div></div>`;document.body.style.overflow='hidden';setTimeout(()=>el('modal-root').querySelector('input,select,button')?.focus(),20);}
+  // Adatta la finestra alla porzione realmente visibile dello schermo, anche con tastiera iOS.
+  function syncModalViewport(){
+    const backdrop=el('modal-root').querySelector('.modal-backdrop');
+    if(!backdrop)return;
+    const v=window.visualViewport;
+    if(v){
+      backdrop.style.setProperty('--modal-viewport-height',`${Math.round(v.height)}px`);
+      backdrop.style.setProperty('--modal-viewport-top',`${Math.round(v.offsetTop)}px`);
+    }
+  }
+  function modal(content,small=false){
+    const root=el('modal-root');
+    root.innerHTML=`<div class="modal-backdrop" data-action="close-backdrop"><div class="modal ${small?'modal-sm':''}" role="dialog" aria-modal="true" aria-label="Finestra di CasaFacile">${content}</div></div>`;
+    const dialog=root.querySelector('.modal');
+    const form=dialog.querySelector('#task-form');
+    if(form){
+      dialog.classList.add('task-modal');
+      const actions=form.querySelector('.modal-bottom');
+      if(actions){
+        const field=actions.parentElement;
+        const submit=actions.querySelector('button[type="submit"]');
+        if(submit)submit.setAttribute('form',form.id);
+        const footer=document.createElement('div');
+        footer.className='modal-sticky-actions';
+        footer.appendChild(actions);
+        dialog.appendChild(footer);
+        if(field && !field.textContent.trim())field.remove();
+      }
+    }
+    document.body.style.overflow='hidden';
+    syncModalViewport();
+    // Non mettere il focus su un input quando il modulo viene aperto:
+    // su iPhone provocherebbe apertura della tastiera e possibile zoom.
+    if(window.matchMedia && window.matchMedia('(pointer:fine)').matches){
+      dialog.querySelector('.modal-head .btn-icon')?.focus({preventScroll:true});
+    }
+  }
   function closeModal(){el('modal-root').innerHTML='';document.body.style.overflow='';pendingImport=null;}
   function modalHead(title,description=''){return `<div class="modal-head"><div><h2>${esc(title)}</h2>${description?`<p>${esc(description)}</p>`:''}</div><button type="button" class="btn-icon" data-action="close-modal" aria-label="Chiudi finestra">${ico('x')}</button></div>`;}
   function openTaskModal(id=null,roomId=null){const task=db.chores.find(t=>t.id===id),repeat=task?.repeat||{freq:'none',interval:1};modal(`${modalHead(task?'Modifica attività':'Nuova attività',task?'Aggiorna i dettagli della faccenda.':'Organizza un compito per la tua casa.')}<form id="task-form" data-id="${task?esc(task.id):''}" class="form-grid">
@@ -140,6 +176,8 @@
   document.addEventListener('input',e=>{if(e.target.id==='task-search'){taskSearch=e.target.value;renderTaskResults();}});
   document.addEventListener('change',e=>{if(e.target.id==='t-repeat')el('interval-wrapper')?.classList.toggle('hidden',e.target.value==='none');if(e.target.id==='import-file')prepareImport(e.target.files?.[0]);});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  window.visualViewport?.addEventListener('resize',syncModalViewport);
+  window.visualViewport?.addEventListener('scroll',syncModalViewport);
   el('mobile-fab').addEventListener('click',()=>openTaskModal());
   window.addEventListener('hashchange',()=>{currentRoom=null;render();window.scrollTo(0,0);});
   window.addEventListener('pageshow',()=>{if(page==='dashboard'&&el('date-label')?.textContent!==prettyWeek(TODAY()))render();});

@@ -1,10 +1,10 @@
-/* CasaFacile 1.0.0: App Shell offline. Non conserva risposte API o dati personali. */
-const CACHE = 'casafacile-static-1.0.0';
+/* CasaFacile 1.0.1: App Shell offline. Non conserva risposte API o dati personali. */
+const CACHE = 'casafacile-static-1.0.1';
 const APP_FILES = [
   './',
   './index.html',
-  './styles.css?v=1.0.0',
-  './app.js?v=1.0.0',
+  './styles.css?v=1.0.1',
+  './app.js?v=1.0.1',
   './manifest.webmanifest',
   './assets/icon-192.png',
   './assets/icon-512.png',
