@@ -70,8 +70,19 @@ async function listBackups(id){return (await api('homes/'+encodeURIComponent(id)
 async function downloadBackup(id,backupId){
   const response=await fetch('/api/homes/'+encodeURIComponent(id)+'/backups/'+encodeURIComponent(backupId),{
     credentials:'same-origin',cache:'no-store'});
-  if(!response.ok)throw new Error('Download del backup non riuscito');
+  if(!response.ok||response.redirected||!response.headers.get('content-type')?.includes('application/json'))
+    throw new Error('Download del backup non riuscito o sessione Access scaduta');
+  const expected=response.headers.get('x-backup-sha256');
+  if(!expected||!/^[0-9a-f]{64}$/.test(expected))
+    throw new Error('Il server non ha fornito una verifica di integrità del backup');
   const data=await response.blob();
+  const bytes=await data.arrayBuffer();
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  const actual=[...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  if(actual!==expected)throw new Error('Integrità del backup non verificata: download annullato');
+  const parsed=JSON.parse(await data.text());
+  if(parsed.format!=='CasaFacile-Backup'||parsed.hashAlgorithm!=='SHA-256'||!parsed.payload)
+    throw new Error('Formato di backup CasaFacile non valido');
   const url=URL.createObjectURL(data),a=document.createElement('a');
   a.href=url;a.download='CasaFacile_cloud_backup.json';
   document.body.appendChild(a);a.click();a.remove();
