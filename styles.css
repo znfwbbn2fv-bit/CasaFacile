@@ -18,3 +18,30 @@
 .modal.task-modal .modal-bottom .btn{flex:1 1 0;min-width:0}
 @media(max-width:850px){.field input,.field select,.field textarea,.search-wrap input{font-size:16px}}
 @media(max-width:640px){.modal-backdrop{padding:12px}.modal.task-modal{max-height:calc(var(--modal-viewport-height,100dvh) - 24px);padding:18px 16px 10px}.modal.task-modal .modal-head{margin-bottom:12px}.modal.task-modal .modal-sticky-actions{padding-top:10px}.modal.task-modal .modal-bottom .btn{font-size:14px}}
+
+
+/* CasaFacile 1.1 — catalogo routine e comandi accessibili in mobile. */
+.modal.routine-modal{display:flex;flex-direction:column;overflow:hidden;max-height:min(880px,calc(var(--modal-viewport-height,100dvh) - 28px));width:min(100%,670px);padding-bottom:12px}
+.modal.routine-modal .modal-head{flex:0 0 auto;margin-bottom:12px}
+.routine-intro{flex:0 0 auto;color:#7f839b;font-size:13px;line-height:1.5;margin:0 0 10px}
+.routine-toolbar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 0;border-bottom:1px solid #efeff5;color:#77718f;font-size:12px;font-weight:750}
+.routine-toolbar>div{display:flex;gap:2px;align-items:center}
+.routine-toolbar .text-button{font-size:12px}
+.routine-catalog{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 4px 12px 0}
+.routine-section{padding-top:14px}
+.routine-group-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+.routine-group-head h3{font-size:14px;margin:0;font-weight:800}
+.routine-group-head p{font-size:11px;color:#9a9cae;margin:2px 0 0}
+.routine-group-count{background:#efebfa;color:#7865bd;border-radius:9px;padding:5px 8px;font-size:11px;font-weight:750;white-space:nowrap}
+.routine-option{display:flex;gap:11px;align-items:center;padding:12px 10px;border:1px solid #eeeef4;border-radius:12px;margin-bottom:7px;background:#fff;cursor:pointer}
+.routine-option:has(input:checked){background:#f5f1ff;border-color:#d5c8f2}
+.routine-option input[type="checkbox"]{accent-color:#8979ca;flex:0 0 20px;width:20px;height:20px;margin:0}
+.routine-option-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.routine-option-body strong{font-size:13px;font-weight:740}
+.routine-option-body small{font-size:11px;color:#9295a8;line-height:1.4}
+.routine-option.is-existing{opacity:.65;cursor:default}
+.routine-existing{font-size:10px;color:#6d9e85;background:#e7f4ed;border-radius:99px;padding:5px 8px;white-space:nowrap}
+.routine-actionbar{flex:0 0 auto;background:#fff;border-top:1px solid #eeeef4;padding:12px 0 max(4px,var(--safe-bottom))}
+.routine-actionbar .modal-bottom{margin:0;display:flex;flex-wrap:nowrap}
+.routine-actionbar .modal-bottom .btn{flex:1 1 0;min-width:0}
+@media(max-width:640px){.modal.routine-modal{max-height:calc(var(--modal-viewport-height,100dvh) - 24px);padding:17px 14px 8px}.routine-toolbar .text-button{padding:7px 5px;font-size:11px}.routine-intro{font-size:12px}.routine-option{padding:11px 8px}.routine-option-body strong{font-size:13px}.routine-actionbar .modal-bottom .btn{font-size:13px;padding:10px 8px}}

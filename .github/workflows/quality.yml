@@ -1,0 +1,19 @@
+name: CasaFacile checks
+on:
+  push:
+    branches: [main, "sviluppo-casafacile-1-1"]
+  workflow_dispatch:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verifica sintassi
+        run: |
+          node --check app.js
+          node --check sw.js
+      - name: Verifica routine e compatibilità
+        run: node --test tests/routines.test.mjs
