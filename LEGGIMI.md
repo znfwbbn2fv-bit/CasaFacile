@@ -1,4 +1,4 @@
-# CasaFacile 1.2.1 — SEGNOTA Studio
+# CasaFacile 1.3.0 — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -85,3 +85,13 @@ La struttura dei dati resta **schemaVersion 1** e la chiave localStorage resta *
 ## Nuovo nella 1.2.1: navigazione dashboard
 
 I quattro riquadri della Dashboard sono selezionabili: **Da fare oggi** (attività dovute oggi o scadute), **Completate oggi** (storico effettivo dei completamenti, incluse le routine già riprogrammate), **Programmate** (attività con scadenza futura), **In ritardo** (attività scadute). Ogni sezione diversa dalla Panoramica espone un pulsante **Indietro** per tornare alla sezione precedente; dagli ambienti dettagliati si torna prima all'elenco ambienti. Nessuna migrazione né modifica dei dati.
+
+## CasaFacile 1.3.0 — Famiglia (gestione locale)
+- Nuova **Famiglia**, raggiungibile dalla Panoramica, dal menu desktop e dalle Impostazioni: schede di ogni persona, carichi di lavoro, attività aperte, quelle in ritardo e completamenti degli ultimi 7 giorni.
+- **Distribuzione delle attività aperte** per persona. Le percentuali misurano il numero di faccende correntemente aperte, non il numero di occorrenze future di ciascuna routine.
+- Dalle schede puoi **riassegnare una faccenda** con una tendina, **creare un compito assegnato** alla persona scelta e **visualizzare tutte le sue attività**.
+- In Attività è disponibile un **filtro per persona**, combinabile con i filtri di stato, la ricerca e lo storico di oggi.
+- La modifica rapida dell'assegnazione conserva gli eventi storici dei completamenti precedenti; quelli successivi vengono attribuiti al nuovo incaricato.
+- Il totale di attività entro sette giorni include anche quelle già arretrate. I tempi sono stime derivate dalla durata registrata, non cronometraggi.
+- Persone e assegnazioni restano **locali** e non sincronizzate. Non esistono account o inviti e non è attivo alcun accesso remoto.
+- **Retrocompatibilità:** invariati schemaVersion 1, chiave `casafacile.v1.database` e struttura dell'esportazione JSON. Si consiglia sempre un backup prima dell'aggiornamento. 
