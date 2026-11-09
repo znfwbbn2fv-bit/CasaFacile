@@ -1,17 +1,17 @@
-/* CasaFacile 1.3.0 — SEGNOTA Studio — personal-first PWA
+/* CasaFacile 1.3.1 — SEGNOTA Studio — personal-first PWA
    Persistenza isolata per household; repository sostituibile con adapter cloud futuro. */
 (() => {
   'use strict';
-  const VERSION = '1.3.0';
+  const VERSION = '1.3.1';
   const STORAGE_KEY = 'casafacile.v1.database';
   const ROLLBACK_KEY = 'casafacile.v1.prima-importazione';
   const NAV = [
     ['dashboard','Panoramica','grid'],['tasks','Attività','list'],
     ['calendar','Calendario','calendar'],['rooms','Ambienti','room'],
     ['stats','Statistiche','chart'],['reminders','Promemoria','bell'],['people','Famiglia','users'],
-    ['settings','Impostazioni','settings']
+    ['sharing','Condivisioni','users'],['settings','Impostazioni','settings']
   ];
-  const MOBILE_NAV = ['dashboard','tasks','calendar','rooms','settings'];
+  const MOBILE_NAV = ['dashboard','tasks','calendar','rooms','people','settings'];
   const ROOM_COLORS = ['#eee6fc','#e5f4ed','#fcebf0','#fff0df','#e8f0fc','#f4edf9','#f9e8e2'];
   const TODAY = () => dateKey(new Date());
   const el = id => document.getElementById(id);
@@ -327,10 +327,61 @@
       +'</section>';
   }
 
+
+  /* Lo stato di condivisione è intenzionalmente offline: nessun accesso remoto
+     viene creato dai nomi aggiunti alla famiglia. */
+  function sharingSnapshot(){
+    return {
+      connected:0,
+      configured:db.members.length,
+      additional:db.members.filter(m=>!m.isOwner).length
+    };
+  }
+  function renderSharingDashboardCard(){
+    const snapshot=sharingSnapshot();
+    return '<button type="button" class="panel sharing-dashboard-card" data-action="nav" data-page="sharing"'
+      +' aria-label="Verifica condivisioni: '+snapshot.connected+' accessi condivisi e '+snapshot.configured+' persone configurate localmente">'
+      +'<span class="sharing-card-heading"><span class="sharing-card-icon">'+ico('users')+'</span>'
+      +'<span class="sharing-card-title"><strong>Accessi e condivisioni</strong>'
+      +'<small>Verifica chi è configurato o collegato all’app</small></span>'
+      +'<span class="sharing-card-chevron" aria-hidden="true">'+ico('chevron-right')+'</span></span>'
+      +'<span class="sharing-card-numbers">'
+      +'<span><strong>'+snapshot.connected+'</strong><small>Accessi condivisi</small></span>'
+      +'<span><strong>'+snapshot.configured+'</strong><small>Persone configurate localmente</small></span>'
+      +'</span><span class="sharing-card-footnote">La condivisione tra dispositivi non è ancora attiva.</span>'
+      +'</button>';
+  }
+  function renderSharing(){
+    const snapshot=sharingSnapshot();
+    const members=db.members.map(m=>'<div class="sharing-person-row">'
+      +'<span class="person-bubble" style="background:'+esc(m.color||'#eee6fc')+'">'
+      +esc((m.name||'?').slice(0,2).toUpperCase())+'</span>'
+      +'<div class="sharing-person-info"><strong>'+esc(m.name||'Persona')+'</strong>'
+      +'<small>'+(m.isOwner?'Profilo principale':'Membro aggiunto alla famiglia')+'</small></div>'
+      +'<span class="sharing-local-status">'+ico('house')+' Solo locale</span></div>').join('');
+    return header('Accessi e condivisioni','Controlla le persone registrate nell’app e lo stato effettivo della condivisione.')
+      +'<div class="sharing-overview"><section class="panel sharing-status-panel">'
+      +'<div class="sharing-section-title">'+ico('users')+'<h3>Persone collegate da altri dispositivi</h3></div>'
+      +'<div class="sharing-status-count">'+snapshot.connected+'</div>'
+      +'<p>Al momento <strong>nessuno ha un accesso condiviso</strong>. CasaFacile non dispone ancora di account, inviti o sincronizzazione: non è possibile collegare un altro telefono.</p>'
+      +'<div class="sharing-status-note">Questo valore non è un indicatore di presenza online: gli accessi remoti non sono supportati in questa versione.</div>'
+      +'</section><section class="panel sharing-status-panel">'
+      +'<div class="sharing-section-title">'+ico('users')+'<h3>Persone configurate su questo iPhone</h3></div>'
+      +'<div class="sharing-status-count">'+snapshot.configured+'</div>'
+      +'<p>'+snapshot.additional+' persone aggiunte alla famiglia oltre al profilo principale. '
+      +'Questi nominativi servono per assegnare le attività e <strong>non hanno accesso autonomo all’app</strong>.</p>'
+      +'</section></div>'
+      +'<section class="panel sharing-list-panel"><div class="panel-head"><h3>Elenco persone</h3>'
+      +'<small>Stato di accesso</small></div>'
+      +'<div class="sharing-people-list">'+members+'</div>'
+      +'<div class="sharing-list-actions"><button type="button" class="btn btn-soft" data-action="nav" data-page="people">'
+      +ico('users')+' Gestisci Famiglia</button></div></section>';
+  }
+
   function renderDashboard(){const s=statistics();const today=s.pending;const upcoming=sortedTasks(s.open.filter(t=>t.dueDate>TODAY())).slice(0,4);const display=esc(db.settings.displayName||'');
     return `<section class="hero"><div class="hero-text"><div class="eyebrow">${esc(prettyWeek(TODAY()).toUpperCase())}</div><h2>${display?`Ciao, ${display}!`:'Una casa più serena, un passo alla volta.'} ✨</h2><p>Organizza le faccende senza stress. Ogni attività completata è un piccolo traguardo.</p><button class="btn btn-primary" data-action="new-task">${ico('plus')} Aggiungi attività</button><small class="hero-credit">by SEGNOTA Studio</small></div><div class="hero-decoration">${ico('house')}</div></section>
     <section class="stat-grid" aria-label="Riepilogo"><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="today" aria-label="Apri da fare oggi"><div class="stat-top"><span class="stat-icon tint-purple">${ico('list')}</span></div><div class="stat-number">${s.pending.length}</div><div class="stat-name">Da fare oggi</div><div class="stat-detail">Incluse le attività in ritardo</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="doneToday" aria-label="Apri completate oggi"><div class="stat-top"><span class="stat-icon tint-green">${ico('check')}</span></div><div class="stat-number">${s.doneToday.length}</div><div class="stat-name">Completate oggi</div><div class="stat-detail">Ottimo lavoro!</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="upcoming" aria-label="Apri programmate"><div class="stat-top"><span class="stat-icon tint-amber">${ico('clock')}</span></div><div class="stat-number">${s.open.filter(t=>t.dueDate>TODAY()).length}</div><div class="stat-name">Programmate</div><div class="stat-detail">Nei prossimi giorni</div></button><button type="button" class="stat-card stat-card-link" data-action="dashboard-summary" data-filter="overdue" aria-label="Apri in ritardo"><div class="stat-top"><span class="stat-icon tint-pink">${ico('alert')}</span></div><div class="stat-number">${s.overdue.length}</div><div class="stat-name">In ritardo</div><div class="stat-detail">Recuperabili con calma</div></button></section>
-    ${renderDashboardInsights()}${renderFamilyDashboardLink()}<div class="content-grid"><section class="panel"><div class="panel-head"><h3>🗓️ Da fare oggi</h3><button class="text-button" data-action="view-tasks">Tutte le attività ${ico('arrow')}</button></div>${today.length?`<div class="chore-list">${sortedTasks(today).slice(0,7).map(t=>choreRow(t,{noBadge:false})).join('')}</div>${today.length>7?`<div class="tip-line">Altre ${today.length-7} attività nell'elenco completo.</div>`:''}`:empty('Tutto sotto controllo!',db.chores.length?'Nessuna attività in scadenza oggi.':'Inizia aggiungendo la tua prima faccenda domestica.',db.chores.length?'':btnAdd('Crea la prima attività'))}
+    ${renderDashboardInsights()}${renderFamilyDashboardLink()}${renderSharingDashboardCard()}<div class="content-grid"><section class="panel"><div class="panel-head"><h3>🗓️ Da fare oggi</h3><button class="text-button" data-action="view-tasks">Tutte le attività ${ico('arrow')}</button></div>${today.length?`<div class="chore-list">${sortedTasks(today).slice(0,7).map(t=>choreRow(t,{noBadge:false})).join('')}</div>${today.length>7?`<div class="tip-line">Altre ${today.length-7} attività nell'elenco completo.</div>`:''}`:empty('Tutto sotto controllo!',db.chores.length?'Nessuna attività in scadenza oggi.':'Inizia aggiungendo la tua prima faccenda domestica.',db.chores.length?'':btnAdd('Crea la prima attività'))}
     ${upcoming.length?`<h4 class="section-title">Prossime attività</h4>${upcoming.map(t=>choreRow(t)).join('')}`:''}${s.doneToday.length?`<h4 class="section-title">Completate oggi</h4>${[...s.doneToday].reverse().slice(0,5).map(historyRow).join('')}`:''}</section>
     <div><section class="panel"><div class="panel-head"><h3>Il tuo progresso</h3><button class="text-button" data-action="nav" data-page="stats">Statistiche</button></div><div class="progress-card"><div class="progress-card-header"><div><div class="progress-big">${s.rate}%</div><div class="progress-caption">Completamento di oggi</div></div><span class="stat-icon tint-purple">${ico('chart')}</span></div><div class="progress-track"><div class="progress-fill" style="width:${s.rate}%"></div></div><div class="footer-note">${s.doneToday.length} fatte · ${s.pending.length} da fare (incluse scadute)</div></div><div class="panel-head"><h3>Ambienti</h3><button class="text-button" data-action="nav" data-page="rooms">Vedi tutti</button></div><div class="room-mini">${db.rooms.slice(0,5).map(r=>{const tasks=s.open.filter(t=>t.roomId===r.id);return `<div class="room-mini-row"><span class="room-dot" style="background:${esc(r.color)}">${esc(r.emoji)}</span><div class="room-info"><div class="room-label">${esc(r.name)}</div><div class="room-line"><span style="width:${Math.min(tasks.length*20,100)}%"></span></div></div><span class="room-meta">${tasks.length}</span></div>`}).join('')}</div></section><div style="height:18px"></div><section class="notice">${ico('shield')}<div><strong>Modalità personale attiva</strong><br>I tuoi dati restano su questo dispositivo. Crea regolarmente un backup dalle Impostazioni.</div></section></div></div>`;
   }
@@ -454,7 +505,7 @@
       +cards;
   }
   function renderSettings(){return `${header('Impostazioni','Personalizza CasaFacile e proteggi i tuoi dati.')}<div class="content-grid"><section class="panel"><div class="setting-group"><h3>Il tuo profilo</h3><p>Personalizza il messaggio di benvenuto e il nome della casa.</p><form id="settings-form" class="form-grid"><div class="field"><label for="display-name">Come vuoi essere chiamato?</label><input id="display-name" name="displayName" maxlength="32" value="${esc(db.settings.displayName||'')}" placeholder="Il tuo nome"></div><div class="field"><label for="home-name">Nome della casa</label><input id="home-name" name="homeName" maxlength="48" required value="${esc(db.household.name)}"></div><div class="field full"><button type="submit" class="btn btn-primary" style="align-self:flex-start">${ico('check')} Salva preferenze</button></div></form></div><div class="setting-group"><h3>Organizzazione</h3><div class="setting-row"><div><strong>Ambienti</strong><small>Personalizza gli spazi della casa</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="rooms">Gestisci</button></div><div class="setting-row"><div><strong>Routine preimpostate</strong><small>24 faccende pronte, aggiungi solo quelle che vuoi</small></div><button class="btn btn-outline btn-sm" data-action="open-routines">Scegli</button></div><div class="setting-row"><div><strong>Famiglia</strong><small>Responsabilità e assegnazioni locali</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="people">Gestisci</button></div><div class="setting-row"><div><strong>Centro promemoria</strong><small>Attività arretrate, di oggi e dei prossimi 3 giorni</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="reminders">Visualizza</button></div><div class="setting-row"><div><strong>Statistiche</strong><small>Andamento delle faccende completate</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="stats">Visualizza</button></div></div></section><section class="panel"><div class="setting-group"><h3>Backup e ripristino</h3><p>Le informazioni sono salvate soltanto in questo browser. Il backup manuale è necessario per trasferirle o recuperarle.</p><div class="action-row"><button class="btn btn-primary" data-action="export">${ico('download')} Esporta backup</button><button class="btn btn-outline" data-action="import">${ico('upload')} Importa backup</button></div><div class="footer-note">Il file JSON include ambienti, persone, faccende e storico; se disponibile, contiene una verifica di integrità SHA-256.</div>${localStorage.getItem(ROLLBACK_KEY)?`<div class="setting-row"><div><strong>Annulla l'ultima importazione</strong><small>Ripristina i dati precedenti all'ultimo import.</small></div><button class="btn btn-outline btn-sm" data-action="restore-import">Ripristina</button></div>`:''}</div><div class="setting-group"><h3>Dati e versione</h3><div class="setting-row"><div><strong>Versione</strong><small>CasaFacile ${VERSION}</small></div><span class="version">PWA</span></div><div class="setting-row"><div><strong>Archivio</strong><small>${db.chores.length} attività · ${db.history.length} completamenti</small></div><span class="version">Locale</span></div><div class="setting-row"><div><strong>Modalità</strong><small>Predisposta per account e cloud futuri</small></div><span class="version">Personale</span></div></div><div class="notice">${ico('shield')}<div><strong>Privacy by design.</strong><br>Nessuna registrazione, pubblicità, analytics o trasferimento dei dati a un server in questa versione. Non cancellare i dati di Safari senza aver prima esportato un backup.</div></div><div class="footer-note">Ideato e sviluppato da <strong>SEGNOTA Studio</strong>.</div></section></div>`;}
-  function render(){page=pageFromHash();if(memberFilter!=='all'&&!memberById(memberFilter))memberFilter='all';renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',reminders:'Promemoria',people:'Famiglia',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'reminders':html=renderReminders();break;case'people':html=renderPeople();break;case'settings':html=renderSettings();break;}el('content').innerHTML=(page==='dashboard'?'':backButton())+html;if(page==='tasks')renderTaskResults();}
+  function render(){page=pageFromHash();if(memberFilter!=='all'&&!memberById(memberFilter))memberFilter='all';renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',reminders:'Promemoria',people:'Famiglia',sharing:'Condivisioni',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'reminders':html=renderReminders();break;case'people':html=renderPeople();break;case'sharing':html=renderSharing();break;case'settings':html=renderSettings();break;}el('content').innerHTML=(page==='dashboard'?'':backButton())+html;if(page==='tasks')renderTaskResults();}
   function nextDate(date,repeat){if(repeat.freq==='none')return null;const n=Math.max(1,Math.min(365,Number(repeat.interval)||1));if(repeat.freq==='daily')return plusDays(date,n);if(repeat.freq==='weekly')return plusDays(date,n*7);return plusMonths(date,n,repeat.anchorDay||Number(date.slice(-2)));}
   function afterCompletion(t){let next=nextDate(t.dueDate,t.repeat),loops=0;while(next&&next<=TODAY()&&loops++<2000)next=nextDate(next,t.repeat);return next;}
   function completeTask(id){const t=db.chores.find(x=>x.id===id);if(!t||t.done)return;const event={id:uid(),taskId:t.id,householdId:db.household.id,title:t.title,roomId:t.roomId,roomName:roomById(t.roomId)?.name||'Altro',memberId:t.memberId,memberName:memberById(t.memberId)?.name||'Io',minutes:t.minutes||0,plannedDate:t.dueDate,completedAt:nowISO()};const next=afterCompletion(t);if(next){t.dueDate=next;}else{t.done=true;t.completedAt=event.completedAt;}t.updatedAt=nowISO();db.history.push(event);completionToken=event.id;save();render();toast(next?`Completata! Prossima scadenza: ${prettyDate(next)}`:'Attività completata.');}
