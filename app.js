@@ -1,14 +1,14 @@
-/* CasaFacile 1.1.0 — SEGNOTA Studio — personal-first PWA
+/* CasaFacile 1.2.0 — SEGNOTA Studio — personal-first PWA
    Persistenza isolata per household; repository sostituibile con adapter cloud futuro. */
 (() => {
   'use strict';
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   const STORAGE_KEY = 'casafacile.v1.database';
   const ROLLBACK_KEY = 'casafacile.v1.prima-importazione';
   const NAV = [
     ['dashboard','Panoramica','grid'],['tasks','Attività','list'],
     ['calendar','Calendario','calendar'],['rooms','Ambienti','room'],
-    ['stats','Statistiche','chart'],['people','Persone','users'],
+    ['stats','Statistiche','chart'],['reminders','Promemoria','bell'],['people','Persone','users'],
     ['settings','Impostazioni','settings']
   ];
   const MOBILE_NAV = ['dashboard','tasks','calendar','rooms','settings'];
@@ -69,10 +69,163 @@
   function historyRow(h){const task=db.chores.find(t=>t.id===h.taskId);const latest=[...db.history].reverse().find(x=>x.taskId===h.taskId);const canUndo=task&&latest?.id===h.id;return `<div class="chore-row"><div class="check-btn done" aria-hidden="true">${ico('check')}</div><div class="task-body"><div class="task-name done">${esc(h.title)}</div><div class="task-sub"><span>${esc(h.roomName||'Altro')}</span><span class="sub-dot"></span><span>${esc(h.memberName||'Io')}</span><span class="sub-dot"></span><span>${esc(dateTime(h.completedAt))}</span></div></div>${canUndo?`<button class="btn btn-outline btn-sm" data-action="undo-completion" data-id="${esc(h.id)}" title="Annulla questo completamento">${ico('repeat')} Annulla</button>`:pill('Fatta','done')}</div>`;}
   function repeatLabel(r){if(!r||r.freq==='none')return 'Una volta';const count=Number(r.interval)||1;const forms={daily:['Ogni giorno','Ogni {n} giorni'],weekly:['Ogni settimana','Ogni {n} settimane'],monthly:['Ogni mese','Ogni {n} mesi']};let [one,many]=forms[r.freq]||forms.daily;return count===1?one:many.replace('{n}',count);}
   function sortedTasks(list){return [...list].sort((a,b)=>Number(a.done)-Number(b.done)||a.dueDate.localeCompare(b.dueDate)||({high:0,medium:1,low:2}[a.priority]??1)-({high:0,medium:1,low:2}[b.priority]??1)||a.title.localeCompare(b.title,'it'));}
+
+  /* CasaFacile 1.2 — metriche e promemoria: calcoli locali senza modificare il database. */
+  let statsPeriod=7, statsSelectedBar=null;
+  function completionMetrics(period=7, today=TODAY()){
+    const days=period===30?30:7;
+    const start=plusDays(today,1-days);
+    const data=new Map();
+    for(const h of db.history){
+      const day=dateKey(h.completedAt);
+      if(day<start||day>today)continue;
+      if(!data.has(day))data.set(day,{count:0,minutes:0,items:[]});
+      const entry=data.get(day);
+      entry.count++;
+      const minutes=Number(h.minutes);
+      entry.minutes+=Number.isFinite(minutes)&&minutes>0?minutes:0;
+      entry.items.push(h);
+    }
+    const rows=Array.from({length:days},(_,i)=>{
+      const day=plusDays(start,i),entry=data.get(day)||{count:0,minutes:0,items:[]};
+      return {day,count:entry.count,minutes:entry.minutes,items:entry.items};
+    });
+    const stride=days===30?5:1,bars=[];
+    for(let i=0;i<rows.length;i+=stride){
+      const part=rows.slice(i,i+stride),first=part[0].day,last=part[part.length-1].day;
+      bars.push({
+        first,last,
+        label:stride===1?prettyDate(first,{weekday:'short'}):
+          prettyDate(first,{day:'numeric',month:'short'}),
+        count:part.reduce((n,r)=>n+r.count,0),
+        minutes:part.reduce((n,r)=>n+r.minutes,0)
+      });
+    }
+    const history=rows.flatMap(x=>x.items);
+    const minutes=rows.reduce((n,x)=>n+x.minutes,0);
+    const roomCounts=new Map();
+    for(const h of history){
+      const key=h.roomId||'unknown';
+      const old=roomCounts.get(key)||{id:key,name:h.roomName||'Altro',count:0};
+      old.count++;roomCounts.set(key,old);
+    }
+    return {
+      days,start,today,history,bars,minutes,completed:history.length,
+      activeDays:rows.filter(r=>r.count>0).length,
+      roomCounts:[...roomCounts.values()].sort((a,b)=>b.count-a.count)
+    };
+  }
+  function reminderBuckets(today=TODAY()){
+    const tomorrow=plusDays(today,1),horizon=plusDays(today,3);
+    const open=db.chores.filter(t=>!t.done);
+    return {
+      overdue:sortedTasks(open.filter(t=>t.dueDate<today)),
+      today:sortedTasks(open.filter(t=>t.dueDate===today)),
+      soon:sortedTasks(open.filter(t=>t.dueDate>=tomorrow&&t.dueDate<=horizon))
+    };
+  }
+  /* CasaFacile 1.2 — fine calcoli, inizio componenti di visualizzazione. */
+
+
+  function metricMinutes(value){
+    const n=Math.round(Number(value)||0);
+    if(n<60)return n+' min';
+    const h=Math.floor(n/60),m=n%60;
+    return h+' h'+(m?' '+m+' min':'');
+  }
+  function operationalMix(today=TODAY()){
+    const open=db.chores.filter(t=>!t.done);
+    return [
+      {label:'Completate oggi',value:db.history.filter(h=>dateKey(h.completedAt)===today).length,color:'#79b59e',filter:null},
+      {label:'Da fare oggi',value:open.filter(t=>t.dueDate===today).length,color:'#8d7bd0',filter:'today'},
+      {label:'In ritardo',value:open.filter(t=>t.dueDate<today).length,color:'#e5a5b1',filter:'overdue'},
+      {label:'Future',value:open.filter(t=>t.dueDate>today).length,color:'#edc98f',filter:'upcoming'}
+    ];
+  }
+  function operationalDonut(){
+    const slices=operationalMix(),total=slices.reduce((n,x)=>n+x.value,0);
+    let progress=0;
+    const colors=total?slices.filter(x=>x.value>0).map(x=>{
+      const start=progress;progress+=100*x.value/total;
+      return x.color+' '+start.toFixed(2)+'% '+progress.toFixed(2)+'%';
+    }).join(', '):'#ececf4 0% 100%';
+    const gradient='conic-gradient('+colors+')';
+    const label='Oggi: '+slices.map(x=>x.label+' '+x.value).join(', ');
+    return '<div class="mix-layout"><div class="mix-donut" role="img" aria-label="'+esc(label)
+      +'" style="background:'+gradient+'"><div class="mix-core"><strong>'+total
+      +'</strong><small>eventi e attività</small></div></div><div class="mix-legend">'
+      +slices.map(x=>'<div class="mix-legend-row"><span class="mix-swatch" style="background:'+x.color+'"></span>'
+        +'<span>'+esc(x.label)+'</span><strong>'+x.value+'</strong></div>').join('')
+      +'</div></div><p class="footer-note">Fotografia: attività aperte e completamenti registrati oggi. I completamenti ricorrenti possono comparire insieme alle prossime scadenze.</p>';
+  }
+  function renderDashboardInsights(){
+    const m=completionMetrics(7),r=reminderBuckets();
+    const urgent=r.overdue.length+r.today.length;
+    return '<div class="insights-grid" aria-label="Analisi e promemoria">'
+      +'<section class="panel"><div class="panel-head"><h3>Panoramica delle attività</h3>'
+      +'<button class="text-button" data-action="nav" data-page="stats">Analizza</button></div>'
+      +operationalDonut()+'</section>'
+      +'<section class="panel"><div class="panel-head"><h3>Andamento settimanale</h3>'
+      +'<button class="text-button" data-action="nav" data-page="stats">Statistiche</button></div>'
+      +'<div class="insight-metrics"><div><strong>'+m.completed+'</strong><span>completate · 7 giorni</span></div>'
+      +'<div><strong>'+esc(metricMinutes(m.minutes))+'</strong><span>tempo stimato</span></div></div>'
+      +'<div class="insight-bars" role="img" aria-label="'+m.completed+' attività completate negli ultimi 7 giorni">'
+      +m.bars.map(b=>'<span class="insight-bar" title="'+esc(prettyDate(b.first,{day:'numeric',month:'short'}))
+        +': '+b.count+' completamenti"><i style="height:'+(m.completed?Math.max(6,b.count/Math.max(1,...m.bars.map(x=>x.count))*100):0)
+        +'%"></i></span>').join('')+'</div>'
+      +'<p class="footer-note">Ogni barra rappresenta un giorno. I minuti sono stime, non tempo cronometrato.</p></section>'
+      +'<section class="panel reminder-summary"><div class="panel-head"><h3>Promemoria</h3>'
+      +'<button class="text-button" data-action="nav" data-page="reminders">Apri centro</button></div>'
+      +'<div class="reminder-summary-metrics"><div class="reminder-overdue"><strong>'+r.overdue.length+'</strong><span>In ritardo</span></div>'
+      +'<div><strong>'+r.today.length+'</strong><span>Oggi</span></div>'
+      +'<div><strong>'+r.soon.length+'</strong><span>Entro 3 giorni</span></div></div>'
+      +'<p class="reminder-summary-note">'+(urgent?'Ci sono '+urgent+' attività da controllare.':'Nessuna attività urgente: controlla le prossime scadenze.')
+      +'</p><button class="btn btn-soft reminder-open" type="button" data-action="nav" data-page="reminders">Visualizza promemoria '+ico('arrow')+'</button></section>'
+      +'</div>';
+  }
+  function renderReminderGroup(title,note,list,filter){
+    const cap=7;
+    return '<section class="panel reminder-panel"><div class="panel-head"><div><h3>'+esc(title)
+      +'</h3><small>'+esc(note)+'</small></div><span class="reminder-number">'+list.length+'</span></div>'
+      +(list.length?'<div class="chore-list">'+list.slice(0,cap).map(t=>choreRow(t)).join('')+'</div>'
+       :empty('Nessuna attività','Non risultano faccende in questa categoria.'))
+      +(list.length>cap?'<p class="footer-note">Altre '+(list.length-cap)+' attività nell’elenco completo.</p>':'')
+      +(list.length?'<button class="text-button" data-action="open-task-filter" data-filter="'+filter+'">Apri le attività '+ico('arrow')+'</button>':'')
+      +'</section>';
+  }
+  function renderReminders(){
+    const r=reminderBuckets();
+    return header('Centro promemoria','Scadenze organizzate per urgenza, consultabili anche offline.')
+      +'<div class="reminder-banner">'+ico('bell')+' <div><strong>Avvisi all’interno dell’app</strong>'
+      +'<p>I promemoria vengono aggiornati quando apri o usi CasaFacile. Non sono notifiche push e non compaiono quando l’app è chiusa.</p></div></div>'
+      +'<div class="reminder-columns">'
+      +renderReminderGroup('In ritardo','Scadute prima di oggi',r.overdue,'overdue')
+      +renderReminderGroup('Da fare oggi','Scadono entro questa giornata',r.today,'today')
+      +renderReminderGroup('In arrivo','Nei prossimi 3 giorni',r.soon,'upcoming')
+      +'</div>';
+  }
+  function renderStatsBars(m){
+    const max=Math.max(1,...m.bars.map(x=>x.count));
+    const index=statsSelectedBar!=null&&statsSelectedBar<m.bars.length?statsSelectedBar:null;
+    const selected=index===null?null:m.bars[index];
+    return '<div class="trend-chart" aria-label="Completamenti per '+(m.days===7?'giorno':'gruppi di cinque giorni')+'">'
+      +m.bars.map((b,i)=>{
+        const label=prettyDate(b.first,{day:'numeric',month:'short'})+(b.first!==b.last?' – '+prettyDate(b.last,{day:'numeric',month:'short'}):'');
+        return '<button type="button" class="trend-col'+(index===i?' active':'')+'" data-action="stats-bar" data-bar="'+i
+          +'" aria-label="'+esc(label+': '+b.count+' completamenti, '+metricMinutes(b.minutes))+'">'
+          +'<span class="trend-count">'+b.count+'</span><span class="trend-rail"><i style="height:'+(b.count?Math.max(5,b.count/max*100):0)
+          +'%"></i></span><span class="trend-label">'+esc(b.label)+'</span></button>';
+      }).join('')+'</div>'
+      +'<div class="trend-selection" aria-live="polite">'+(selected
+        ?'<strong>'+esc(prettyDate(selected.first,{day:'numeric',month:'short'}))+(selected.first!==selected.last?' – '+esc(prettyDate(selected.last,{day:'numeric',month:'short'})):'')
+          +'</strong> · '+selected.count+' completament'+(selected.count===1?'o':'i')+' · '+esc(metricMinutes(selected.minutes))+' stimati'
+        :'Tocca una barra per visualizzare completamenti e minuti del periodo.')+'</div>';
+  }
+
   function renderDashboard(){const s=statistics();const today=s.pending;const upcoming=sortedTasks(s.open.filter(t=>t.dueDate>TODAY())).slice(0,4);const display=esc(db.settings.displayName||'');
     return `<section class="hero"><div class="hero-text"><div class="eyebrow">${esc(prettyWeek(TODAY()).toUpperCase())}</div><h2>${display?`Ciao, ${display}!`:'Una casa più serena, un passo alla volta.'} ✨</h2><p>Organizza le faccende senza stress. Ogni attività completata è un piccolo traguardo.</p><button class="btn btn-primary" data-action="new-task">${ico('plus')} Aggiungi attività</button><small class="hero-credit">by SEGNOTA Studio</small></div><div class="hero-decoration">${ico('house')}</div></section>
     <section class="stat-grid" aria-label="Riepilogo"><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-purple">${ico('list')}</span></div><div class="stat-number">${s.pending.length}</div><div class="stat-name">Da fare oggi</div><div class="stat-detail">Incluse le attività in ritardo</div></div><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-green">${ico('check')}</span></div><div class="stat-number">${s.doneToday.length}</div><div class="stat-name">Completate oggi</div><div class="stat-detail">Ottimo lavoro!</div></div><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-amber">${ico('clock')}</span></div><div class="stat-number">${s.open.filter(t=>t.dueDate>TODAY()).length}</div><div class="stat-name">Programmate</div><div class="stat-detail">Nei prossimi giorni</div></div><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-pink">${ico('alert')}</span></div><div class="stat-number">${s.overdue.length}</div><div class="stat-name">In ritardo</div><div class="stat-detail">Recuperabili con calma</div></div></section>
-    <div class="content-grid"><section class="panel"><div class="panel-head"><h3>🗓️ Da fare oggi</h3><button class="text-button" data-action="view-tasks">Tutte le attività ${ico('arrow')}</button></div>${today.length?`<div class="chore-list">${sortedTasks(today).slice(0,7).map(t=>choreRow(t,{noBadge:false})).join('')}</div>${today.length>7?`<div class="tip-line">Altre ${today.length-7} attività nell'elenco completo.</div>`:''}`:empty('Tutto sotto controllo!',db.chores.length?'Nessuna attività in scadenza oggi.':'Inizia aggiungendo la tua prima faccenda domestica.',db.chores.length?'':btnAdd('Crea la prima attività'))}
+    ${renderDashboardInsights()}<div class="content-grid"><section class="panel"><div class="panel-head"><h3>🗓️ Da fare oggi</h3><button class="text-button" data-action="view-tasks">Tutte le attività ${ico('arrow')}</button></div>${today.length?`<div class="chore-list">${sortedTasks(today).slice(0,7).map(t=>choreRow(t,{noBadge:false})).join('')}</div>${today.length>7?`<div class="tip-line">Altre ${today.length-7} attività nell'elenco completo.</div>`:''}`:empty('Tutto sotto controllo!',db.chores.length?'Nessuna attività in scadenza oggi.':'Inizia aggiungendo la tua prima faccenda domestica.',db.chores.length?'':btnAdd('Crea la prima attività'))}
     ${upcoming.length?`<h4 class="section-title">Prossime attività</h4>${upcoming.map(t=>choreRow(t)).join('')}`:''}${s.doneToday.length?`<h4 class="section-title">Completate oggi</h4>${[...s.doneToday].reverse().slice(0,5).map(historyRow).join('')}`:''}</section>
     <div><section class="panel"><div class="panel-head"><h3>Il tuo progresso</h3><button class="text-button" data-action="nav" data-page="stats">Statistiche</button></div><div class="progress-card"><div class="progress-card-header"><div><div class="progress-big">${s.rate}%</div><div class="progress-caption">Completamento di oggi</div></div><span class="stat-icon tint-purple">${ico('chart')}</span></div><div class="progress-track"><div class="progress-fill" style="width:${s.rate}%"></div></div><div class="footer-note">${s.doneToday.length} fatte · ${s.pending.length} da fare (incluse scadute)</div></div><div class="panel-head"><h3>Ambienti</h3><button class="text-button" data-action="nav" data-page="rooms">Vedi tutti</button></div><div class="room-mini">${db.rooms.slice(0,5).map(r=>{const tasks=s.open.filter(t=>t.roomId===r.id);return `<div class="room-mini-row"><span class="room-dot" style="background:${esc(r.color)}">${esc(r.emoji)}</span><div class="room-info"><div class="room-label">${esc(r.name)}</div><div class="room-line"><span style="width:${Math.min(tasks.length*20,100)}%"></span></div></div><span class="room-meta">${tasks.length}</span></div>`}).join('')}</div></section><div style="height:18px"></div><section class="notice">${ico('shield')}<div><strong>Modalità personale attiva</strong><br>I tuoi dati restano su questo dispositivo. Crea regolarmente un backup dalle Impostazioni.</div></section></div></div>`;
   }
@@ -90,10 +243,40 @@
   function renderCalendar(){const monthLabel=new Intl.DateTimeFormat('it-IT',{month:'long',year:'numeric'}).format(new Date(`${monthCursor}-01T12:00:00`));return `${header('Calendario delle faccende','Una visione chiara dei tuoi impegni domestici.',btnAdd())}<div class="calendar-shell"><section class="panel"><div class="calendar-head"><h3>${esc(monthLabel)}</h3><div class="calendar-controls"><button class="btn-icon" data-action="month-prev" aria-label="Mese precedente">${ico('chevron-left')}</button><button class="btn btn-sm btn-outline" data-action="month-today">Oggi</button><button class="btn-icon" data-action="month-next" aria-label="Mese successivo">${ico('chevron-right')}</button></div></div><div class="calendar-weekdays">${['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map(x=>`<span>${x}</span>`).join('')}</div><div class="calendar-days">${calendarDays()}</div><p class="footer-note">Pallini viola: attività previste · Verdi: completate. Le ricorrenze future sono proiezioni, non attività già registrate.</p></section><section class="panel"><div class="panel-head"><h3>Dettaglio del giorno</h3>${pill(selectedDay===TODAY()?'Oggi':'Selezionato','today')}</div><div id="day-agenda">${dayAgenda()}</div></section></div>`;}
   function renderRooms(){return `${header('Gli ambienti di casa','Organizza le faccende stanza per stanza.',`<button class="btn btn-primary" data-action="new-room">${ico('plus')} Nuovo ambiente</button>`)}<div class="room-grid">${db.rooms.map(r=>{const tasks=db.chores.filter(t=>t.roomId===r.id&&!t.done);return `<button class="room-card" data-action="open-room" data-id="${esc(r.id)}"><span class="room-card-icon" style="background:${esc(r.color)}">${esc(r.emoji)}</span><strong>${esc(r.name)}</strong><small>${tasks.length} ${tasks.length===1?'attività aperta':'attività aperte'}</small><div class="room-card-bar"><span style="width:${Math.min(tasks.length*20,100)}%"></span></div></button>`;}).join('')}</div>${!db.rooms.length?empty('Nessun ambiente','Crea il primo ambiente per organizzare le attività.'):''}`;}
   function renderRoomDetail(){const room=roomById(currentRoom);if(!room){currentRoom=null;return renderRooms();}const tasks=sortedTasks(db.chores.filter(t=>t.roomId===room.id));return `<div class="page-heading"><div><button class="text-button" data-action="rooms-back">${ico('chevron-left')} Tutti gli ambienti</button><h2><span>${esc(room.emoji)}</span> ${esc(room.name)}</h2><p>${tasks.filter(x=>!x.done).length} attività aperte</p></div><div class="heading-actions"><button class="btn btn-outline" data-action="edit-room" data-id="${esc(room.id)}">${ico('pencil')} Modifica</button><button class="btn btn-primary" data-action="new-task" data-room="${esc(room.id)}">${ico('plus')} Attività</button></div></div><section class="panel">${tasks.length?tasks.map(choreRow).join(''):empty('Tutto in ordine','Non ci sono ancora faccende per questo ambiente.',btnAdd())}</section>`;}
-  function renderStats(){const s=statistics();const pastDays=Array.from({length:7},(_,i)=>plusDays(TODAY(),i-6));const counts=pastDays.map(day=>completedOn(day).length);const max=Math.max(1,...counts),totalMins=s.doneWeek.reduce((n,h)=>n+(Number(h.minutes)||0),0);const roomCounts=db.rooms.map(r=>({room:r,count:s.doneWeek.filter(h=>h.roomId===r.id).length})).filter(x=>x.count).sort((a,b)=>b.count-a.count);return `${header('Le tue statistiche','I risultati degli ultimi 7 giorni, compreso oggi.')}<section class="stats-grid"><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-green">${ico('check')}</span></div><div class="stat-number">${s.doneWeek.length}</div><div class="stat-name">Faccende completate</div></div><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-purple">${ico('clock')}</span></div><div class="stat-number">${totalMins}</div><div class="stat-name">Minuti stimati di attività</div></div><div class="stat-card"><div class="stat-top"><span class="stat-icon tint-pink">${ico('alert')}</span></div><div class="stat-number">${s.overdue.length}</div><div class="stat-name">Attività in ritardo</div></div></section><div class="content-grid"><section class="panel"><div class="panel-head"><h3>Attività completate per giorno</h3><small>Ultimi 7 giorni</small></div><div class="bar-chart">${pastDays.map((d,i)=>`<div class="bar-col"><span class="bar-count">${counts[i]}</span><div class="bar-rail"><div class="bar-fill" style="height:${counts[i]?Math.max(5,counts[i]/max*100):0}%"></div></div><span class="bar-label">${esc(prettyDate(d,{weekday:'short'}))}</span></div>`).join('')}</div><p class="footer-note">Un completamento viene contato il giorno in cui hai premuto «Completata».</p></section><section class="panel"><div class="panel-head"><h3>Attività per ambiente</h3><small>Ultimi 7 giorni</small></div>${roomCounts.length?roomCounts.map(x=>`<div class="stats-room-row"><div class="stats-room-title"><span>${esc(x.room.emoji)} ${esc(x.room.name)}</span><span>${x.count}</span></div><div class="stats-track"><i style="width:${Math.round(x.count/s.doneWeek.length*100)}%"></i></div></div>`).join(''):empty('Nessun dato ancora','Completa delle attività per visualizzare il riepilogo.')}<p class="footer-note">I minuti sono una stima basata sulla durata indicata nelle attività, non un timer misurato.</p></section></div>`;}
+  function renderStats(){
+    const m=completionMetrics(statsPeriod),r=reminderBuckets();
+    const range='<div class="stats-range" role="group" aria-label="Intervallo statistiche">'
+      +[7,30].map(n=>'<button type="button" class="stats-range-btn'+(statsPeriod===n?' active':'')
+        +'" data-action="stats-range" data-days="'+n+'" aria-pressed="'+(statsPeriod===n?'true':'false')+'">'
+        +(n===7?'7 giorni':'30 giorni')+'</button>').join('')+'</div>';
+    return header('Le tue statistiche','Completamenti registrati, tempo stimato e andamento nel periodo.',range)
+      +'<section class="stats-grid">'
+      +'<div class="stat-card"><div class="stat-top"><span class="stat-icon tint-green">'+ico('check')+'</span></div>'
+      +'<div class="stat-number">'+m.completed+'</div><div class="stat-name">Completamenti · '+m.days+' giorni</div></div>'
+      +'<div class="stat-card"><div class="stat-top"><span class="stat-icon tint-purple">'+ico('clock')+'</span></div>'
+      +'<div class="stat-number">'+esc(metricMinutes(m.minutes))+'</div><div class="stat-name">Tempo stimato delle attività fatte</div></div>'
+      +'<div class="stat-card"><div class="stat-top"><span class="stat-icon tint-amber">'+ico('calendar')+'</span></div>'
+      +'<div class="stat-number">'+m.activeDays+'</div><div class="stat-name">Giorni con almeno un completamento</div></div>'
+      +'</section><div class="content-grid">'
+      +'<section class="panel"><div class="panel-head"><h3>Andamento dei completamenti</h3><small>'
+      +(m.days===7?'Giorno per giorno':'Gruppi di 5 giorni')+'</small></div>'
+      +renderStatsBars(m)
+      +'<p class="footer-note">I completamenti sono attribuiti alla data effettiva di registrazione, anche per le attività ricorrenti.</p></section>'
+      +'<section class="panel"><div class="panel-head"><h3>Attività per ambiente</h3><small>Completate nel periodo</small></div>'
+      +(m.roomCounts.length?m.roomCounts.map(x=>{
+        const room=roomById(x.id);
+        return '<div class="stats-room-row"><div class="stats-room-title"><span>'
+          +esc((room?.emoji||'🏠')+' '+(room?.name||x.name))+'</span><span>'+x.count+'</span></div>'
+          +'<div class="stats-track"><i style="width:'+Math.round(x.count/Math.max(1,m.completed)*100)+'%"></i></div></div>';
+      }).join(''):empty('Nessun completamento','Completa qualche faccenda per vedere il grafico.'))
+      +'<p class="footer-note">Le durate sono stimate in base ai minuti associati alle attività; non rappresentano ore misurate.</p></section>'
+      +'</div><section class="panel stats-reminders-link"><div><strong>Scadenze da controllare</strong>'
+      +'<p>'+r.overdue.length+' in ritardo · '+r.today.length+' oggi · '+r.soon.length+' nei prossimi tre giorni</p></div>'
+      +'<button class="btn btn-soft" data-action="nav" data-page="reminders">'+ico('bell')+' Centro promemoria</button></section>';
+  }
   function renderPeople(){const counted=db.members.map(m=>({m,active:db.chores.filter(t=>!t.done&&t.memberId===m.id).length,completed:db.history.filter(h=>h.memberId===m.id).length}));return `${header('Le persone di casa','Assegna localmente le attività a chi vive con te.',`<button class="btn btn-primary" data-action="new-person">${ico('plus')} Aggiungi persona</button>`)}<div class="notice" style="margin-bottom:18px">${ico('info')}<div><strong>La condivisione online non è ancora attiva.</strong><br>Puoi associare i compiti a più persone, ma modifiche e completamenti restano visibili soltanto su questo dispositivo. La futura modalità famiglia richiederà account e sincronizzazione.</div></div><section class="panel"><div class="person-list">${counted.map(({m,active,completed})=>`<div class="person-item"><span class="person-bubble" style="background:${esc(m.color||'#eee6fc')}">${esc((m.name||'?').slice(0,2).toUpperCase())}</span><div><strong>${esc(m.name)} ${m.isOwner?'· Profilo principale':''}</strong><small>${active} da fare · ${completed} completate</small></div><button class="btn-icon" data-action="edit-person" data-id="${esc(m.id)}" aria-label="Modifica persona">${ico('pencil')}</button></div>`).join('')}</div></section>`;}
-  function renderSettings(){return `${header('Impostazioni','Personalizza CasaFacile e proteggi i tuoi dati.')}<div class="content-grid"><section class="panel"><div class="setting-group"><h3>Il tuo profilo</h3><p>Personalizza il messaggio di benvenuto e il nome della casa.</p><form id="settings-form" class="form-grid"><div class="field"><label for="display-name">Come vuoi essere chiamato?</label><input id="display-name" name="displayName" maxlength="32" value="${esc(db.settings.displayName||'')}" placeholder="Il tuo nome"></div><div class="field"><label for="home-name">Nome della casa</label><input id="home-name" name="homeName" maxlength="48" required value="${esc(db.household.name)}"></div><div class="field full"><button type="submit" class="btn btn-primary" style="align-self:flex-start">${ico('check')} Salva preferenze</button></div></form></div><div class="setting-group"><h3>Organizzazione</h3><div class="setting-row"><div><strong>Ambienti</strong><small>Personalizza gli spazi della casa</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="rooms">Gestisci</button></div><div class="setting-row"><div><strong>Routine preimpostate</strong><small>24 faccende pronte, aggiungi solo quelle che vuoi</small></div><button class="btn btn-outline btn-sm" data-action="open-routines">Scegli</button></div><div class="setting-row"><div><strong>Persone</strong><small>Assegnazioni locali dei compiti</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="people">Gestisci</button></div><div class="setting-row"><div><strong>Statistiche</strong><small>Andamento delle faccende completate</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="stats">Visualizza</button></div></div></section><section class="panel"><div class="setting-group"><h3>Backup e ripristino</h3><p>Le informazioni sono salvate soltanto in questo browser. Il backup manuale è necessario per trasferirle o recuperarle.</p><div class="action-row"><button class="btn btn-primary" data-action="export">${ico('download')} Esporta backup</button><button class="btn btn-outline" data-action="import">${ico('upload')} Importa backup</button></div><div class="footer-note">Il file JSON include ambienti, persone, faccende e storico; se disponibile, contiene una verifica di integrità SHA-256.</div>${localStorage.getItem(ROLLBACK_KEY)?`<div class="setting-row"><div><strong>Annulla l'ultima importazione</strong><small>Ripristina i dati precedenti all'ultimo import.</small></div><button class="btn btn-outline btn-sm" data-action="restore-import">Ripristina</button></div>`:''}</div><div class="setting-group"><h3>Dati e versione</h3><div class="setting-row"><div><strong>Versione</strong><small>CasaFacile ${VERSION}</small></div><span class="version">PWA</span></div><div class="setting-row"><div><strong>Archivio</strong><small>${db.chores.length} attività · ${db.history.length} completamenti</small></div><span class="version">Locale</span></div><div class="setting-row"><div><strong>Modalità</strong><small>Predisposta per account e cloud futuri</small></div><span class="version">Personale</span></div></div><div class="notice">${ico('shield')}<div><strong>Privacy by design.</strong><br>Nessuna registrazione, pubblicità, analytics o trasferimento dei dati a un server in questa versione. Non cancellare i dati di Safari senza aver prima esportato un backup.</div></div><div class="footer-note">Ideato e sviluppato da <strong>SEGNOTA Studio</strong>.</div></section></div>`;}
-  function render(){page=pageFromHash();renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',people:'Persone',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'people':html=renderPeople();break;case'settings':html=renderSettings();break;}el('content').innerHTML=html;if(page==='tasks')renderTaskResults();}
+  function renderSettings(){return `${header('Impostazioni','Personalizza CasaFacile e proteggi i tuoi dati.')}<div class="content-grid"><section class="panel"><div class="setting-group"><h3>Il tuo profilo</h3><p>Personalizza il messaggio di benvenuto e il nome della casa.</p><form id="settings-form" class="form-grid"><div class="field"><label for="display-name">Come vuoi essere chiamato?</label><input id="display-name" name="displayName" maxlength="32" value="${esc(db.settings.displayName||'')}" placeholder="Il tuo nome"></div><div class="field"><label for="home-name">Nome della casa</label><input id="home-name" name="homeName" maxlength="48" required value="${esc(db.household.name)}"></div><div class="field full"><button type="submit" class="btn btn-primary" style="align-self:flex-start">${ico('check')} Salva preferenze</button></div></form></div><div class="setting-group"><h3>Organizzazione</h3><div class="setting-row"><div><strong>Ambienti</strong><small>Personalizza gli spazi della casa</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="rooms">Gestisci</button></div><div class="setting-row"><div><strong>Routine preimpostate</strong><small>24 faccende pronte, aggiungi solo quelle che vuoi</small></div><button class="btn btn-outline btn-sm" data-action="open-routines">Scegli</button></div><div class="setting-row"><div><strong>Persone</strong><small>Assegnazioni locali dei compiti</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="people">Gestisci</button></div><div class="setting-row"><div><strong>Centro promemoria</strong><small>Attività arretrate, di oggi e dei prossimi 3 giorni</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="reminders">Visualizza</button></div><div class="setting-row"><div><strong>Statistiche</strong><small>Andamento delle faccende completate</small></div><button class="btn btn-outline btn-sm" data-action="nav" data-page="stats">Visualizza</button></div></div></section><section class="panel"><div class="setting-group"><h3>Backup e ripristino</h3><p>Le informazioni sono salvate soltanto in questo browser. Il backup manuale è necessario per trasferirle o recuperarle.</p><div class="action-row"><button class="btn btn-primary" data-action="export">${ico('download')} Esporta backup</button><button class="btn btn-outline" data-action="import">${ico('upload')} Importa backup</button></div><div class="footer-note">Il file JSON include ambienti, persone, faccende e storico; se disponibile, contiene una verifica di integrità SHA-256.</div>${localStorage.getItem(ROLLBACK_KEY)?`<div class="setting-row"><div><strong>Annulla l'ultima importazione</strong><small>Ripristina i dati precedenti all'ultimo import.</small></div><button class="btn btn-outline btn-sm" data-action="restore-import">Ripristina</button></div>`:''}</div><div class="setting-group"><h3>Dati e versione</h3><div class="setting-row"><div><strong>Versione</strong><small>CasaFacile ${VERSION}</small></div><span class="version">PWA</span></div><div class="setting-row"><div><strong>Archivio</strong><small>${db.chores.length} attività · ${db.history.length} completamenti</small></div><span class="version">Locale</span></div><div class="setting-row"><div><strong>Modalità</strong><small>Predisposta per account e cloud futuri</small></div><span class="version">Personale</span></div></div><div class="notice">${ico('shield')}<div><strong>Privacy by design.</strong><br>Nessuna registrazione, pubblicità, analytics o trasferimento dei dati a un server in questa versione. Non cancellare i dati di Safari senza aver prima esportato un backup.</div></div><div class="footer-note">Ideato e sviluppato da <strong>SEGNOTA Studio</strong>.</div></section></div>`;}
+  function render(){page=pageFromHash();renderNavigation();const names={dashboard:'Panoramica',tasks:'Attività',calendar:'Calendario',rooms:'Ambienti',stats:'Statistiche',reminders:'Promemoria',people:'Persone',settings:'Impostazioni'};el('page-title').textContent=names[page];el('date-label').textContent=prettyWeek(TODAY());el('avatar').textContent=(db.settings.displayName||'IO').slice(0,2).toUpperCase();el('mobile-fab').classList.toggle('hidden',page==='tasks'||page==='dashboard');let html='';switch(page){case'dashboard':html=renderDashboard();break;case'tasks':html=renderTasks();break;case'calendar':html=renderCalendar();break;case'rooms':html=currentRoom?renderRoomDetail():renderRooms();break;case'stats':html=renderStats();break;case'reminders':html=renderReminders();break;case'people':html=renderPeople();break;case'settings':html=renderSettings();break;}el('content').innerHTML=html;if(page==='tasks')renderTaskResults();}
   function nextDate(date,repeat){if(repeat.freq==='none')return null;const n=Math.max(1,Math.min(365,Number(repeat.interval)||1));if(repeat.freq==='daily')return plusDays(date,n);if(repeat.freq==='weekly')return plusDays(date,n*7);return plusMonths(date,n,repeat.anchorDay||Number(date.slice(-2)));}
   function afterCompletion(t){let next=nextDate(t.dueDate,t.repeat),loops=0;while(next&&next<=TODAY()&&loops++<2000)next=nextDate(next,t.repeat);return next;}
   function completeTask(id){const t=db.chores.find(x=>x.id===id);if(!t||t.done)return;const event={id:uid(),taskId:t.id,householdId:db.household.id,title:t.title,roomId:t.roomId,roomName:roomById(t.roomId)?.name||'Altro',memberId:t.memberId,memberName:memberById(t.memberId)?.name||'Io',minutes:t.minutes||0,plannedDate:t.dueDate,completedAt:nowISO()};const next=afterCompletion(t);if(next){t.dueDate=next;}else{t.done=true;t.completedAt=event.completedAt;}t.updatedAt=nowISO();db.history.push(event);completionToken=event.id;save();render();toast(next?`Completata! Prossima scadenza: ${prettyDate(next)}`:'Attività completata.');}
@@ -294,7 +477,7 @@
 
   function demo(){if(db.chores.length&&!confirm('Aggiungere otto attività di esempio alle attività che hai già?'))return;const examples=[['Rifare i letti',2,'daily',1,10],['Lavare i piatti',0,'daily',1,15],['Pulire il piano cucina',0,'daily',1,10],['Pulire il bagno',1,'weekly',1,35],['Passare aspirapolvere',3,'weekly',1,30],['Avviare lavatrice',4,'weekly',1,20],['Cambiare le lenzuola',2,'weekly',2,25],['Pulire i vetri',5,'monthly',1,45]];const start=TODAY();for(const [title,roomIndex,freq,interval,minutes] of examples){db.chores.push({id:uid(),householdId:db.household.id,title,roomId:db.rooms[roomIndex%db.rooms.length]?.id||db.rooms[0].id,memberId:db.members[0].id,dueDate:start,repeat:{freq,interval,anchorDay:Number(start.slice(-2))},priority:'medium',minutes,notes:'',done:false,completedAt:null,createdAt:nowISO(),updatedAt:nowISO()});}save();render();toast('Otto attività di esempio aggiunte.');}
   function toast(msg,type=''){const root=el('toast-root');root.innerHTML=`<div class="toast ${type}">${esc(msg)}</div>`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>root.innerHTML='',4200);}
-  document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,id=b.dataset.id;switch(a){case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'view-tasks':taskFilter='all';go('tasks');break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
+  document.addEventListener('click',async e=>{const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,id=b.dataset.id;switch(a){case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'view-tasks':taskFilter='all';go('tasks');break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'open-task-filter':taskFilter=b.dataset.filter;taskSearch='';go('tasks');break;case'stats-range':statsPeriod=Number(b.dataset.days)===30?30:7;statsSelectedBar=null;render();break;case'stats-bar':statsSelectedBar=Number(b.dataset.bar);render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
   document.addEventListener('submit',e=>{const form=e.target;if(!['task-form','room-form','person-form','settings-form'].includes(form.id))return;e.preventDefault();if(form.id==='task-form')saveTask(form);if(form.id==='room-form')saveRoom(form);if(form.id==='person-form')savePerson(form);if(form.id==='settings-form'){const fd=new FormData(form),name=String(fd.get('homeName')||'').trim();if(!name){toast('Inserisci il nome della casa.','error');return;}db.household.name=name.slice(0,48);db.settings.displayName=String(fd.get('displayName')||'').trim().slice(0,32);save();render();toast('Preferenze salvate.');}});
   document.addEventListener('input',e=>{if(e.target.id==='task-search'){taskSearch=e.target.value;renderTaskResults();}});
   document.addEventListener('change',e=>{if(e.target.matches?.('#routine-catalog input[data-routine-id]')){if(e.target.checked)routineSelection.add(e.target.dataset.routineId);else routineSelection.delete(e.target.dataset.routineId);updateRoutineSelectionUI();return;}if(e.target.id==='t-repeat')el('interval-wrapper')?.classList.toggle('hidden',e.target.value==='none');if(e.target.id==='import-file')prepareImport(e.target.files?.[0]);});

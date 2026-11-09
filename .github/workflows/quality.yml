@@ -1,7 +1,7 @@
 name: CasaFacile checks
 on:
   push:
-    branches: [main, "sviluppo-casafacile-1-1"]
+    branches: [main, "sviluppo-casafacile-1-2"]
   workflow_dispatch:
 jobs:
   smoke:
@@ -15,5 +15,5 @@ jobs:
         run: |
           node --check app.js
           node --check sw.js
-      - name: Verifica routine e compatibilità
-        run: node --test tests/routines.test.mjs
+      - name: Test automatici
+        run: node --test tests/*.test.mjs

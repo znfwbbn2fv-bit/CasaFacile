@@ -1,4 +1,4 @@
-# CasaFacile 1.1.0 — SEGNOTA Studio
+# CasaFacile 1.2.0 — SEGNOTA Studio
 
 App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smartphone, tablet e computer. Non richiede un server applicativo né un database cloud.
 
@@ -29,7 +29,7 @@ App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smar
 ## Dati, privacy e limiti
 
 - I dati sono salvati tramite `localStorage` nel browser **sul singolo dispositivo**, non in GitHub e non nei file del sito.
-- Non esiste sincronizzazione tra telefoni in CasaFacile 1.1.0. Anche se assegni faccende a più persone, ognuna non le vede sul proprio telefono.
+- Non esiste sincronizzazione tra telefoni in CasaFacile 1.2.0. Anche se assegni faccende a più persone, ognuna non le vede sul proprio telefono.
 - Il browser o il sistema operativo possono cancellare dati locali. Esporta un backup dopo configurazioni importanti e periodicamente.
 - La PWA mostra scadenze **nell'app**. Non invia notifiche push automatiche quando è chiusa.
 - L'archivio per la condivisione futura usa ID di casa, ambiente, persona e faccenda. Per la versione cloud serviranno autenticazione, autorizzazioni, sincronizzazione, gestione conflitti e migrazione esplicita. Non implementate in 1.0.
@@ -58,10 +58,10 @@ App PWA *personal-first* per gestire le faccende domestiche. Funziona sullo smar
 
 Archivio: `casafacile.v1.database`; importazioni con recupero: `casafacile.v1.prima-importazione`.
 
-© 2026 SEGNOTA Studio — CasaFacile 1.1.0.
+© 2026 SEGNOTA Studio — CasaFacile 1.2.0.
 
 
-## Aggiornamento 1.1.0 (iPhone)
+## Aggiornamento 1.2.0 (iPhone)
 - Risolto zoom automatico dei campi: dimensione testo minima 16 px sui dispositivi mobili.
 - Corretto modulo attività: scorrimento dei campi indipendente dai pulsanti di azione.
 - Pulsanti «Annulla» e «Crea attività / Salva modifiche» sempre visibili.
@@ -69,8 +69,15 @@ Archivio: `casafacile.v1.database`; importazioni con recupero: `casafacile.v1.pr
 - Adattamento della finestra anche con tastiera virtuale iOS.
 - Chiavi e struttura del database locale invariati: i dati precedenti restano sul dispositivo.
 
-## Nuovo in CasaFacile 1.1.0: routine preimpostate
+## Nuovo in CasaFacile 1.2.0: routine preimpostate
 
 Dal menu **Attività → Routine pronte** (o da **Impostazioni → Routine preimpostate**) si accede a un catalogo di 24 attività organizzate per frequenza: quotidiane, settimanali, mensili e trimestrali. Le attività sono visibili in anteprima e si aggiungono soltanto dopo selezione esplicita. Le voci già presenti, riconosciute per presetId o nome e ambiente, non vengono duplicate. Le scadenze sono distribuite su giorni adeguati alla frequenza. Le attività importate restano modificabili; non vengono effettuate connessioni cloud.
 
-La struttura dei dati resta **schemaVersion 1** e la chiave localStorage resta **casafacile.v1.database**: la versione 1.1.0 non cancella dati e mantiene la compatibilità dei backup precedenti.
+La struttura dei dati resta **schemaVersion 1** e la chiave localStorage resta **casafacile.v1.database**: la versione 1.2.0 non cancella dati e mantiene la compatibilità dei backup precedenti.
+
+## Nuovo in CasaFacile 1.2.0: dashboard avanzata e promemoria locali
+
+- **Panoramica:** grafico ad anello dello stato operativo corrente (completamenti odierni, attività odierne, arretrate, future), mini-trend settimanale e sintesi delle scadenze. Le categorie del grafico combinano lo storico di oggi e lo stato corrente delle faccende; una routine completata può avere anche una scadenza futura.
+- **Statistiche:** intervalli degli ultimi 7 o 30 giorni, gruppi giornalieri o di 5 giorni, barre interattive selezionabili che mostrano conteggi e minuti, ambienti, giornate con almeno un completamento. I minuti sono *stime*, non un cronometraggio.
+- **Promemoria:** nuova pagina con attività in ritardo, in scadenza oggi ed entro 3 giorni, accessibile dalla dashboard, da Impostazioni e dalla navigazione desktop. Gli avvisi sono **soltanto interni all'app**; non vengono inviate notifiche push quando CasaFacile è chiusa.
+- **Privacy e compatibilità:** nessuna chiamata remota, la chiave `casafacile.v1.database` e `schemaVersion:1` restano invariati; sono leggibili i backup precedenti. Backup consigliato prima dell'aggiornamento.
