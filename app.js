@@ -1038,9 +1038,48 @@
       toast('Seleziona e copia il link manualmente.');
     }break;
 case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeModal();break;case'nav':go(b.dataset.page);break;case'go-back':goBack();break;case'dashboard-summary':openDashboardSummary(b.dataset.filter);break;case'view-tasks':taskFilter='all';memberFilter='all';go('tasks');break;case'family-view-tasks':goFamilyTasks(id);break;case'family-new-task':if(memberById(id))openTaskModal(null,null,id);break;case'open-routines':openRoutineLibrary();break;case'routine-all':selectAllRoutines(true);break;case'routine-none':selectAllRoutines(false);break;case'routine-import':importSelectedRoutines();break;case'new-task':openTaskModal(null,b.dataset.room||null);break;case'edit-task':openTaskModal(id);break;case'complete':completeTask(id);break;case'reopen':reopenTask(id);break;case'undo-completion':if(undoLastCompletion(id))toast('Completamento annullato.');else toast('Non è possibile annullare questa registrazione.','error');break;case'delete-task':deleteTask(id);break;case'filter':taskFilter=b.dataset.filter;render();break;case'open-task-filter':taskFilter=b.dataset.filter;memberFilter='all';taskSearch='';go('tasks');break;case'stats-range':statsPeriod=Number(b.dataset.days)===30?30:7;statsSelectedBar=null;render();break;case'stats-bar':statsSelectedBar=Number(b.dataset.bar);render();break;case'month-prev':monthCursor=plusMonths(`${monthCursor}-01`,-1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-next':monthCursor=plusMonths(`${monthCursor}-01`,1,1).slice(0,7);selectedDay=`${monthCursor}-01`;render();break;case'month-today':monthCursor=TODAY().slice(0,7);selectedDay=TODAY();render();break;case'pick-day':selectedDay=b.dataset.day;monthCursor=selectedDay.slice(0,7);render();break;case'open-room':currentRoom=id;render();break;case'rooms-back':currentRoom=null;render();break;case'new-room':openRoomModal();break;case'edit-room':openRoomModal(id);break;case'delete-room':deleteRoom(id);break;case'new-person':openPersonModal();break;case'edit-person':openPersonModal(id);break;case'delete-person':deletePerson(id);break;case'export':await exportDB();break;case'import':el('import-file').click();break;case'confirm-import':confirmImport();break;case'restore-import':restoreImport();break;case'demo':demo();break;}});
-  document.addEventListener('submit',e=>{const form=e.target;if(!['task-form','room-form','person-form','settings-form'].includes(form.id))return;e.preventDefault();if(form.id==='task-form')saveTask(form);if(form.id==='room-form')saveRoom(form);if(form.id==='person-form')savePerson(form);if(form.id==='settings-form'){const fd=new FormData(form),name=String(fd.get('homeName')||'').trim();if(!name){toast('Inserisci il nome della casa.','error');return;}db.household.name=name.slice(0,48);db.settings.displayName=String(fd.get('displayName')||'').trim().slice(0,32);save();render();toast('Preferenze salvate.');}});
+  document.addEventListener('submit',e=>{
+    const form=e.target;
+    if(['cloud-email-form','cloud-code-form','cloud-invite-form'].includes(form.id)){
+      e.preventDefault();
+      const fields=new FormData(form);
+      if(form.id==='cloud-email-form'){
+        const email=String(fields.get('email')||'').trim().toLowerCase();
+        void cloudAction('Invio codice',async()=>{
+          await cloudService.sendOtp(email);cloudOtpEmail=email;
+          toast('Controlla la posta elettronica per il codice.');
+        });
+      }
+      if(form.id==='cloud-code-form'){
+        const token=String(fields.get('token')||'').trim();
+        void cloudAction('Accesso',async()=>{
+          await cloudService.verifyOtp(cloudOtpEmail,token);
+          cloudUser=await cloudService.user();cloudOtpEmail='';
+          await cloudReloadGroups();
+          if(cloudMode)await cloudSync();
+          toast('Accesso effettuato.');
+        });
+      }
+      if(form.id==='cloud-invite-form'){
+        const email=String(fields.get('email')||'').trim().toLowerCase();
+        const role=String(fields.get('role')||'editor');
+        void cloudAction('Creazione invito',async()=>{
+          if(!cloudMode||cloudMode.role!=='owner')throw new Error('Solo il proprietario può invitare.');
+          const invite=await cloudService.createInvitation(cloudMode.id,email,role);
+          if(!invite?.invitation_token)throw new Error('Invito non generato.');
+          cloudInviteUrl=location.origin+location.pathname+'?invite='+invite.invitation_token+'#sharing';
+          cloudInvitations=await cloudService.listInvitations(cloudMode.id);
+          toast('Link di invito pronto.');
+        });
+      }
+      return;
+    }
+    if(!['task-form','room-form','person-form','settings-form'].includes(form.id))return;
+    e.preventDefault();
+    if(cloudMode?.role==='viewer'){toast('Questa famiglia è di sola lettura.','error');return;}
+if(form.id==='task-form')saveTask(form);if(form.id==='room-form')saveRoom(form);if(form.id==='person-form')savePerson(form);if(form.id==='settings-form'){const fd=new FormData(form),name=String(fd.get('homeName')||'').trim();if(!name){toast('Inserisci il nome della casa.','error');return;}db.household.name=name.slice(0,48);db.settings.displayName=String(fd.get('displayName')||'').trim().slice(0,32);save();render();toast('Preferenze salvate.');}});
   document.addEventListener('input',e=>{if(e.target.id==='task-search'){taskSearch=e.target.value;renderTaskResults();}});
-  document.addEventListener('change',e=>{if(e.target.id==='task-member-filter'){memberFilter=e.target.value;renderTaskResults();return;}if(e.target.matches?.('select[data-action="family-assign"]')){reassignFamilyTask(e.target.dataset.taskId,e.target.value);return;}if(e.target.matches?.('#routine-catalog input[data-routine-id]')){if(e.target.checked)routineSelection.add(e.target.dataset.routineId);else routineSelection.delete(e.target.dataset.routineId);updateRoutineSelectionUI();return;}if(e.target.id==='t-repeat')el('interval-wrapper')?.classList.toggle('hidden',e.target.value==='none');if(e.target.id==='import-file')prepareImport(e.target.files?.[0]);});
+  document.addEventListener('change',e=>{if(e.target.id==='task-member-filter'){memberFilter=e.target.value;renderTaskResults();return;}if(e.target.matches?.('select[data-action="family-assign"]')){if(cloudMode?.role==='viewer'){toast('Famiglia di sola lettura.','error');render();return;}reassignFamilyTask(e.target.dataset.taskId,e.target.value);return;}if(e.target.matches?.('#routine-catalog input[data-routine-id]')){if(e.target.checked)routineSelection.add(e.target.dataset.routineId);else routineSelection.delete(e.target.dataset.routineId);updateRoutineSelectionUI();return;}if(e.target.id==='t-repeat')el('interval-wrapper')?.classList.toggle('hidden',e.target.value==='none');if(e.target.id==='import-file')prepareImport(e.target.files?.[0]);});
   document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
   window.visualViewport?.addEventListener('resize',syncModalViewport);
   window.visualViewport?.addEventListener('scroll',syncModalViewport);
@@ -1052,6 +1091,12 @@ case'close-backdrop':if(e.target===b)closeModal();break;case'close-modal':closeM
   renderDashboard=function(){const html=originalDashboard();return !db.chores.length?`${html}<div class="panel" style="margin-top:18px"><div class="split-header"><div><strong style="font-size:14px">Vuoi iniziare da una routine pronta?</strong><p class="muted" style="margin-top:5px">Scegli le routine quotidiane, settimanali, mensili e trimestrali più adatte a te.</p></div><button class="btn btn-soft" data-action="open-routines">${ico('sparkle')} Scegli le routine</button></div></div>`:html;};
   if(!location.hash)history.replaceState(null,'','#dashboard');
   render();
+  if(cloudAvailable()){
+    void cloudInit();
+    setInterval(()=>{if(cloudMode)void cloudSync();},30000);
+    window.addEventListener('online',()=>{if(cloudMode)void cloudSync();});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&cloudMode)void cloudSync();});
+  }
   if('serviceWorker'in navigator&&location.protocol.startsWith('http')){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(err=>console.warn('Installazione offline non disponibile:',err)));}
   // Espone esclusivamente metadati non sensibili per diagnosi/versionamento.
   window.CasaFacile={version:VERSION,schemaVersion:1,repository:repository.kind};
