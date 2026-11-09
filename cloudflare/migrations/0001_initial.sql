@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS households (
   owner_email TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_operation_id TEXT,
   backup_revision INTEGER NOT NULL DEFAULT 0
 );
 
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS invitations (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at TEXT NOT NULL,
   accepted_at TEXT,
+  accepted_operation_id TEXT,
   revoked_at TEXT
 );
 CREATE INDEX IF NOT EXISTS invites_home_idx ON invitations(household_id,expires_at);
