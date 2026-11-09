@@ -1,7 +1,7 @@
 name: CasaFacile checks
 on:
   push:
-    branches: [main, "sviluppo-casafacile-1-4"]
+    branches: [main, "sviluppo-casafacile-1-4", "sviluppo-casafacile-1-4-cloudflare"]
   workflow_dispatch:
 jobs:
   smoke:
@@ -17,5 +17,15 @@ jobs:
           node --check sw.js
           node --check cloud-client.js
           node --check cloud-config.js
+          node --check cloudflare/src/worker.mjs
+          node --check cloudflare/src/access.mjs
+          node --check cloudflare/src/validation.mjs
+          node --check cloudflare/scripts/prepare-assets.mjs
+      - name: Controlla asset pubblici (senza file backend)
+        run: |
+          node cloudflare/scripts/prepare-assets.mjs
+          test -f cloudflare/public/index.html
+          test -f cloudflare/public/cloud-client.js
+          test ! -f cloudflare/public/src/worker.mjs
       - name: Test automatici
         run: node --test tests/*.test.mjs
