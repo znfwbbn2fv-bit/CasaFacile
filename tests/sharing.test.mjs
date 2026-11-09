@@ -51,15 +51,21 @@ test('protezione output per nomi da campo libero',()=>{
   assert.doesNotMatch(renderSharing(),/<img src=x>/);
 });
 test('famiglia visibile nella navigazione mobile e schermata condivisione raggiungibile',()=>{
-  assert.match(app,/const MOBILE_NAV = \['dashboard','tasks','calendar','rooms','people','settings'\]/);
+  assert.match(app,/const MOBILE_NAV = \['dashboard','tasks','calendar','rooms','people','sharing','settings'\]/);
   assert.match(app,/\['sharing','Condivisioni','users'\]/);
+  assert.match(html,/id="top-sharing"/);
+  assert.match(html,/data-action="nav" data-page="sharing"/);
+  assert.match(html,/id="top-sharing-count"/);
+  assert.match(app,/el\('top-sharing-count'\)\.textContent=String\(shared\)/);
+  assert.match(app,/key==='sharing'\?'Condivisi':label/);
+
   assert.match(app,/case'sharing':html=renderSharing\(\)/);
   assert.match(css,/\.sharing-dashboard-card\{/);
   assert.match(css,/\.mobile-nav a\{min-width:0;flex:1 1 0/);
-  assert.match(app,/const VERSION = '1\.3\.1'/);
+  assert.match(app,/const VERSION = '1\.3\.2'/);
   assert.match(app,/const STORAGE_KEY = 'casafacile\.v1\.database'/);
   assert.match(app,/schemaVersion:1/);
-  assert.match(html,/app\.js\?v=1\.3\.1/);
-  assert.match(html,/styles\.css\?v=1\.3\.1/);
-  assert.match(sw,/casafacile-static-1\.3\.1/);
+  assert.match(html,/app\.js\?v=1\.3\.2/);
+  assert.match(html,/styles\.css\?v=1\.3\.2/);
+  assert.match(sw,/casafacile-static-1\.3\.2/);
 });
