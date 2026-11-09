@@ -34,6 +34,8 @@ async function client(){
 }
 async function user(){
   const c=await client();
+  const session=first(await c.auth.getSession()).session;
+  if(!session)return null;
   return first(await c.auth.getUser()).user||null;
 }
 async function sendOtp(email){
