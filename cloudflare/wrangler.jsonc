@@ -3,6 +3,8 @@
   "name": "casafacile-family-beta",
   "main": "./src/worker.mjs",
   "compatibility_date": "2026-11-09",
+  "workers_dev": false,
+  "routes": [{"pattern": "REPLACE_WITH_PROTECTED_BETA_HOSTNAME", "custom_domain": true}],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
