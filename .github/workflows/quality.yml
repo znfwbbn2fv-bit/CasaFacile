@@ -1,7 +1,7 @@
 name: CasaFacile checks
 on:
   push:
-    branches: [main, "sviluppo-casafacile-1-2-1"]
+    branches: [main, "sviluppo-casafacile-1-3"]
   workflow_dispatch:
 jobs:
   smoke:
