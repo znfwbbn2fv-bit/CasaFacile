@@ -377,6 +377,205 @@
 
   /* Lo stato di condivisione è intenzionalmente offline: nessun accesso remoto
      viene creato dai nomi aggiunti alla famiglia. */
+
+  /* CasaFacile 1.4 — modello condiviso opzionale. La copia personale non è mai sovrascritta. */
+  function cloudScheduleSync(){
+    if(!cloudMode||!cloudAvailable())return;
+    if(cloudSyncTimer)clearTimeout(cloudSyncTimer);
+    cloudSyncTimer=setTimeout(()=>{cloudSyncTimer=null;void cloudSync();},1200);
+  }
+  function cloudUiUpdate(){if(page==='sharing'||page==='dashboard')render();}
+  async function cloudReloadGroups(){
+    if(!cloudAvailable()||!cloudUser)return;
+    cloudGroups=await cloudService.households();
+  }
+  async function cloudSync(){
+    if(!cloudMode||!cloudAvailable()||cloudSyncing||!navigator.onLine||!cloudUser)return;
+    const id=cloudMode.id;
+    cloudSyncing=true;
+    try{
+      const remote=await cloudService.getHousehold(id);
+      if(!cloudMode||cloudMode.id!==id)return;
+      if(!remote.role)throw new Error('Accesso alla famiglia non più disponibile');
+      cloudMode.role=remote.role;
+      cloudTeam=remote.members;
+      if(!validDB(remote.snapshot))throw new Error('La copia condivisa non è valida: sincronizzazione interrotta.');
+      const remoteRev=Number(remote.revision),localRev=Number(cloudMode.revision);
+      if(!Number.isSafeInteger(remoteRev)||remoteRev<1||!Number.isSafeInteger(localRev)||localRev<1)
+        throw new Error('Versione dei dati condivisi non valida');
+      if(cloudMode.dirty){
+        if(cloudMode.role==='viewer')throw new Error('Non hai il permesso di modificare questo archivio');
+        if(remoteRev!==localRev){
+          cloudMode.conflict=true;
+          persistCloudMode();
+          throw new Error('Conflitto: un altro dispositivo ha aggiornato la famiglia. Nessun dato locale è stato sovrascritto.');
+        }
+        const pending=readJson(sharedKey(id));
+        if(!validDB(pending))throw new Error('Copia locale condivisa non valida.');
+        const atStart=cloudMutations;
+        const newRevision=Number(await cloudService.updateHousehold(id,localRev,pending));
+        if(!cloudMode||cloudMode.id!==id)return;
+        if(!Number.isSafeInteger(newRevision)||newRevision<=localRev)
+          throw new Error('Il server ha restituito una revisione non valida.');
+        cloudMode.revision=newRevision;
+        cloudMode.dirty=(cloudMutations!==atStart);
+        cloudMode.conflict=false;
+        persistCloudMode();
+        cloudError='';
+        cloudLastSync=new Date().toISOString();
+        if(cloudMode.dirty)cloudScheduleSync();
+      }else{
+        if(remoteRev!==localRev){
+          db=JSON.parse(JSON.stringify(remote.snapshot));
+          localStorage.setItem(sharedKey(id),JSON.stringify(db));
+          cloudMode.revision=remoteRev;
+          cloudMode.conflict=false;
+          persistCloudMode();
+          if(memberFilter!=='all'&&!memberById(memberFilter))memberFilter='all';
+        }
+        cloudError='';
+        cloudLastSync=new Date().toISOString();
+      }
+    }catch(e){cloudError=String(e.message||e);console.warn('CasaFacile cloud:',e);}
+    finally{cloudSyncing=false;cloudUiUpdate();}
+  }
+  function cloudSwitchPersonal(){
+    if(cloudMode?.dirty){
+      toast('Ci sono modifiche condivise non sincronizzate. Risolvi prima il conflitto o torna online.','error');
+      return;
+    }
+    cloudMode=null;
+    cloudTeam=[];
+    persistCloudMode();
+    const personal=repository.loadLocal();
+    db=personal||makeDB();
+    if(!personal)repository.save(db);
+    cloudError='';
+    taskFilter='all';memberFilter='all';
+    go('dashboard');render();
+    toast('Modalità personale riattivata. I dati personali sono rimasti separati.');
+  }
+  async function cloudActivate(id){
+    if(cloudMode?.dirty){toast('Sincronizza prima le modifiche pendenti.','error');return;}
+    const remote=await cloudService.getHousehold(id);
+    if(!remote.role||!['owner','editor','viewer'].includes(remote.role))
+      throw new Error('Non hai accesso a questa famiglia.');
+    if(!validDB(remote.snapshot))throw new Error('Archivio remoto non valido.');
+    if(!Number.isSafeInteger(Number(remote.revision))||Number(remote.revision)<1)
+      throw new Error('Revisione remota non valida.');
+    const previous=cloudMode;
+    const localCache=readJson(sharedKey(id));
+    const cached=previous?.id===id&&previous.dirty&&validDB(localCache);
+    const next={id,revision:Number(remote.revision),role:remote.role,dirty:false,conflict:false,name:remote.name};
+    // Si conserva soltanto la copia condivisa; nessuna sovrascrittura di STORAGE_KEY.
+    localStorage.setItem(sharedKey(id),JSON.stringify(cached?localCache:remote.snapshot));
+    cloudMode=next;
+    persistCloudMode();
+    db=JSON.parse(JSON.stringify(cached?localCache:remote.snapshot));
+    cloudTeam=remote.members;
+    cloudError='';
+    cloudLastSync=new Date().toISOString();
+    taskFilter='all';memberFilter='all';currentRoom=null;
+    go('dashboard');render();
+    toast('Famiglia condivisa attiva. La copia personale rimane separata.');
+  }
+  async function cloudAction(label,task){
+    if(cloudBusy)return;
+    cloudBusy=true;
+    cloudError='';
+    cloudUiUpdate();
+    try{await task();}
+    catch(e){cloudError=String(e.message||e);toast(label+': '+cloudError,'error');}
+    finally{cloudBusy=false;cloudUiUpdate();}
+  }
+  async function cloudInit(){
+    if(!cloudAvailable())return;
+    try{
+      cloudUser=await cloudService.user();
+      cloudPendingInvite=cloudService.takeInvite();
+      if(cloudUser){
+        await cloudReloadGroups();
+        if(cloudMode)await cloudSync();
+      }
+    }catch(e){cloudError=String(e.message||e);}
+    cloudUiUpdate();
+  }
+  function cloudRoleLabel(role){
+    return ({owner:'Proprietario',editor:'Può modificare',viewer:'Sola lettura'})[role]||'Sconosciuto';
+  }
+  function cloudStatusText(){
+    if(!cloudMode)return 'Modalità personale';
+    if(cloudMode.conflict)return 'Conflitto da risolvere';
+    if(cloudMode.dirty)return 'Modifiche locali non sincronizzate';
+    if(!navigator.onLine)return 'Offline — dati condivisi nella cache';
+    return cloudLastSync?'Sincronizzato':'Verifica del server in corso';
+  }
+  function renderCloudPanel(){
+    if(!cloudAvailable()){
+      return '<section class="panel cloud-setup"><h3>Condivisione reale — configurazione necessaria</h3>'
+      +'<p>La versione 1.4 introduce l’infrastruttura per accessi e inviti, ma il server non è ancora configurato. '
+      +'L’app continua a funzionare localmente e nessun dato viene trasmesso.</p>'
+      +'<p class="footer-note">Per attivare gli accessi tra dispositivi occorre un progetto Supabase dedicato, le migrazioni SQL e le chiavi pubbliche. Non inserire credenziali private nell’app.</p>'
+      +'</section>';
+    }
+    const progress=cloudBusy?'<p class="cloud-progress" role="status">Operazione in corso…</p>':'';
+    const errors=cloudError?'<p class="cloud-error" role="alert">'+esc(cloudError)+'</p>':'';
+    const inviteNote=cloudPendingInvite?'<p class="cloud-notice">È presente un invito destinato a un indirizzo email specifico. Accedi con quell’indirizzo per poterlo accettare.</p>':'';
+    if(!cloudUser){
+      return '<section class="panel cloud-panel"><h3>Accedi alla condivisione</h3>'
+        +'<p>Ricevi un codice monouso via email. Non serve una password.</p>'
+        +'<form id="cloud-email-form" class="cloud-inline-form"><label>Email verificata <input type="email" name="email" required maxlength="254" autocomplete="email" placeholder="nome@esempio.it" value="'+esc(cloudOtpEmail)+'"></label>'
+        +'<button class="btn btn-primary" type="submit">Invia codice</button></form>'
+        +(cloudOtpEmail?'<form id="cloud-code-form" class="cloud-inline-form"><label>Codice ricevuto <input type="text" name="token" required minlength="6" maxlength="8" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,8}"></label>'
+          +'<button class="btn btn-soft" type="submit">Verifica e accedi</button></form>':'')
+        +inviteNote+progress+errors+'</section>';
+    }
+    const groups='<section class="panel cloud-panel"><div class="panel-head"><h3>Famiglie disponibili</h3>'
+      +'<button class="btn btn-outline btn-sm" data-action="cloud-refresh">Aggiorna</button></div>'
+      +'<p class="cloud-user-email">Accesso: '+esc(cloudUser.email||'')+'</p>'
+      +(cloudGroups.length?cloudGroups.map(g=>'<div class="cloud-house-row"><div><strong>'+esc(g.name)+'</strong>'
+       +'<small>'+cloudRoleLabel(g.role)+' · Revisione '+esc(g.revision)+'</small></div>'
+       +'<button class="btn btn-soft btn-sm" data-action="cloud-open" data-id="'+esc(g.id)+'">'
+       +(cloudMode?.id===g.id?'Attiva':'Apri')+'</button></div>').join('')
+        :'<p class="muted">Non hai ancora famiglie condivise.</p>')
+      +'<div class="cloud-actions">'
+      +(cloudMode?'':'<button class="btn btn-primary btn-sm" data-action="cloud-create">Crea una copia condivisa dalla casa personale</button>')
+      +'<button class="btn btn-outline btn-sm" data-action="cloud-logout">Esci dall’account</button></div>'
+      +inviteNote
+      +(cloudPendingInvite?'<button class="btn btn-primary" data-action="cloud-accept-invite">Accetta invito ricevuto</button>':'')
+      +'</section>';
+    if(!cloudMode)return groups+progress+errors;
+    const team=cloudTeam.map(m=>'<div class="cloud-house-row"><div><strong>'+esc(m.email)+'</strong>'
+      +'<small>'+esc(cloudRoleLabel(m.role))+'</small></div>'
+      +(cloudMode.role==='owner'&&m.role!=='owner'?'<button class="btn btn-outline btn-sm" data-action="cloud-remove" data-id="'+esc(m.user_id)+'">Revoca accesso</button>':'')
+      +'</div>').join('');
+    const invitations=cloudMode.role==='owner'&&cloudInvitations.length
+      ?'<div class="cloud-invites"><h4>Inviti in sospeso</h4>'
+        +cloudInvitations.map(x=>'<div class="cloud-house-row"><div><strong>'+esc(x.invited_email)+'</strong>'
+        +'<small>'+esc(cloudRoleLabel(x.role))+' · Scade '+esc(prettyDate(x.expires_at.slice(0,10)))+'</small></div>'
+        +'<button class="btn btn-outline btn-sm" data-action="cloud-revoke-invite" data-id="'+esc(x.id)+'">Revoca</button></div>').join('')
+        +'</div>':'';
+    const inviteForm=cloudMode.role==='owner'
+      ?'<form id="cloud-invite-form" class="cloud-inline-form"><label>Invita tramite email <input type="email" name="email" required maxlength="254" placeholder="familiare@esempio.it"></label>'
+        +'<label>Permessi <select name="role"><option value="editor">Può modificare</option><option value="viewer">Sola lettura</option></select></label>'
+        +'<button class="btn btn-primary" type="submit">Genera invito</button></form>'
+        +(cloudInviteUrl?'<div class="cloud-invite-result"><label>Link di invito (valido 7 giorni) <input id="cloud-invite-url" readonly value="'+esc(cloudInviteUrl)+'"></label>'
+        +'<button class="btn btn-soft btn-sm" data-action="cloud-copy-invite">Copia link</button>'
+        +'<small>Condividi il link soltanto con la persona che usa l’email indicata.</small></div>':'')
+        +invitations:'';
+    return '<section class="panel cloud-panel"><div class="panel-head"><h3>Casa condivisa attiva</h3><small>'
+      +esc(cloudRoleLabel(cloudMode.role))+'</small></div>'
+      +'<strong>'+esc(cloudMode.name||'Famiglia')+'</strong>'
+      +'<p class="cloud-sync-status">Stato: '+esc(cloudStatusText())+' · Revisione '+esc(cloudMode.revision)+'</p>'
+      +(cloudMode.conflict?'<div class="cloud-error"><strong>Conflitto di versione.</strong> '
+        +'Il server ha dati più recenti: non vengono sovrascritti. Esporta un backup della copia locale prima di decidere come riconciliare le modifiche.</div>':'')
+      +'<div class="cloud-actions"><button class="btn btn-soft" data-action="cloud-sync">Sincronizza ora</button>'
+      +'<button class="btn btn-outline" data-action="cloud-local">Torna alla casa personale</button>'
+      +(cloudMode.role!=='owner'?'<button class="btn btn-outline" data-action="cloud-leave">Esci dalla famiglia</button>':'')+'</div>'
+      +'<h4>Accessi alla famiglia</h4>'+team+inviteForm
+      +'</section>'+groups+progress+errors;
+  }
+
   function sharingSnapshot(){
     return {
       connected:0,
