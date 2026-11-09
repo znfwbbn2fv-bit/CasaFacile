@@ -28,7 +28,7 @@ const records=[
   {id:'h2',memberId:'b',completedAt:'2026-11-09T12:00:00Z',minutes:25},
   {id:'old',memberId:'a',completedAt:'2026-10-30T12:00:00Z',minutes:30}
 ];
-const db={members,chores:tasks,history:records};
+const db={members,chores:tasks,history:records,meta:{updatedAt:'2026-11-01T00:00:00Z'}};
 const plusDays=(date,n)=>{
   const d=new Date(date+'T00:00:00Z');
   d.setUTCDate(d.getUTCDate()+n);
