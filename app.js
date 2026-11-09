@@ -519,7 +519,7 @@
       return '<section class="panel cloud-setup"><h3>Condivisione reale — configurazione necessaria</h3>'
       +'<p>La versione 1.4 introduce l’infrastruttura per accessi e inviti, ma il server non è ancora configurato. '
       +'L’app continua a funzionare localmente e nessun dato viene trasmesso.</p>'
-      +'<p class="footer-note">Per attivare gli accessi tra dispositivi occorre un progetto Supabase dedicato, le migrazioni SQL e le chiavi pubbliche. Non inserire credenziali private nell’app.</p>'
+      +'<p class="footer-note">Per attivare il cloud bisogna distribuire la beta su un Worker con Access, D1 e R2 configurati. Nessuna credenziale privata è presente nell’app.</p>'
       +'</section>';
     }
     const progress=cloudBusy?'<p class="cloud-progress" role="status">Operazione in corso…</p>':'';
