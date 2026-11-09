@@ -183,3 +183,44 @@ button.stat-card-link:after{content:'›';position:absolute;top:18px;right:17px;
   .family-person-card{padding:17px}
 }
 @media(prefers-reduced-motion:reduce){.family-load-track i{transition:none}}
+
+
+/* CasaFacile 1.3.1: stato accessi realistico e sezione Condivisioni navigabile. */
+.sharing-dashboard-card{display:flex;align-items:stretch;flex-direction:column;width:100%;text-align:left;color:inherit;font:inherit;cursor:pointer;gap:12px;margin:0 0 24px;transition:border-color .16s,box-shadow .16s}
+.sharing-dashboard-card:hover{border-color:#d7cbed;box-shadow:0 8px 25px #7664b51c}
+.sharing-dashboard-card:focus-visible{outline:3px solid #856cc7;outline-offset:3px}
+.sharing-card-heading{display:flex;align-items:center;gap:12px}
+.sharing-card-icon{width:45px;height:45px;flex:0 0 45px;display:grid;place-items:center;border-radius:13px;background:#f0e9fb;color:#8266b4}
+.sharing-card-icon .icon{width:23px;height:23px}
+.sharing-card-title{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.sharing-card-title strong{font-size:15px;color:#51476e}
+.sharing-card-title small,.sharing-card-footnote{font-size:11px;color:#9491a9;line-height:1.4}
+.sharing-card-chevron{color:#a99abd}
+.sharing-card-chevron .icon{width:18px;height:18px}
+.sharing-card-numbers{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.sharing-card-numbers>span{padding:13px;border-radius:12px;background:#f8f6fb;display:flex;flex-direction:column;gap:3px}
+.sharing-card-numbers strong{font-size:25px;color:#7769b0;line-height:1.1}
+.sharing-card-numbers small{font-size:11px;color:#817f97;line-height:1.3}
+.sharing-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:19px}
+.sharing-status-panel{min-width:0}
+.sharing-section-title{display:flex;align-items:center;gap:9px;color:#8571b9}
+.sharing-section-title .icon{width:20px;height:20px}
+.sharing-section-title h3{color:#4a4762;font-size:14px;margin:0;line-height:1.4}
+.sharing-status-count{font-size:43px;font-weight:830;line-height:1.1;color:#7262aa;margin:17px 0}
+.sharing-status-panel p{font-size:12px;line-height:1.7;color:#787990}
+.sharing-status-note{border-radius:10px;padding:11px 12px;font-size:11px;line-height:1.55;background:#f5f1fb;color:#776b95;margin-top:12px}
+.sharing-people-list{display:grid}
+.sharing-person-row{padding:15px 0;border-bottom:1px solid #f0edf4;display:flex;align-items:center;gap:12px;min-width:0}
+.sharing-person-row:last-child{border-bottom:0}
+.sharing-person-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.sharing-person-info strong{font-size:13px;overflow-wrap:anywhere}
+.sharing-person-info small{color:#9895a9;font-size:11px}
+.sharing-local-status{display:flex;align-items:center;gap:5px;flex-shrink:0;font-size:11px;color:#8879a7;border-radius:8px;background:#f4f0fb;padding:7px 9px}
+.sharing-local-status .icon{width:14px;height:14px}
+.sharing-list-actions{margin-top:17px}
+@media(max-width:740px){.sharing-overview{grid-template-columns:1fr}}
+@media(max-width:480px){.sharing-dashboard-card{padding:17px}.sharing-card-numbers>span{padding:11px}.sharing-person-row{gap:8px}.sharing-local-status{font-size:10px}}
+/* Sei voci accessibili nella navigazione inferiore, senza overflow su iPhone. */
+.mobile-nav{gap:0}
+.mobile-nav a{min-width:0;flex:1 1 0;padding:3px 1px;font-size:clamp(8px,2.4vw,9.5px);overflow:hidden}
+.mobile-nav a span{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
