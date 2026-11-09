@@ -238,3 +238,31 @@ button.stat-card-link:after{content:'›';position:absolute;top:18px;right:17px;
 .mobile-nav a{min-width:0;flex:1 1 0;padding:3px 1px;font-size:clamp(7.8px,2.2vw,9px)}
 .mobile-nav a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:400px){.mobile-nav .icon{width:19px;height:19px}.mobile-nav{padding-left:1px;padding-right:1px}}
+
+
+/* CasaFacile 1.4 beta — accessi email, inviti e stato sincronizzazione. */
+.cloud-panel,.cloud-setup{margin-top:20px;min-width:0}
+.cloud-panel h3,.cloud-setup h3{font-size:16px;margin:0 0 12px;color:#514765}
+.cloud-panel h4{font-size:13px;margin:18px 0 10px}
+.cloud-panel p,.cloud-setup p{font-size:12px;line-height:1.65;color:#85839d}
+.cloud-inline-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:12px 0}
+.cloud-inline-form label,.cloud-invite-result label{display:flex;flex-direction:column;flex:1 1 160px;gap:6px;font-size:12px;color:#686481;font-weight:700;min-width:0}
+.cloud-inline-form input,.cloud-inline-form select,.cloud-invite-result input{font:inherit;font-size:16px;min-height:42px;border:1px solid #ded9ec;border-radius:10px;background:#fff;padding:8px 10px;width:100%;color:#49425c}
+.cloud-inline-form .btn{min-height:42px}
+.cloud-setup{background:#faf8fe;border-color:#e5def6}
+.cloud-setup p:last-child{margin-bottom:0}
+.cloud-house-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #f0eef5;flex-wrap:wrap}
+.cloud-house-row>div{min-width:0;flex:1}
+.cloud-house-row strong{display:block;font-size:13px;overflow-wrap:anywhere}
+.cloud-house-row small{display:block;font-size:11px;color:#9c97aa;margin-top:5px;line-height:1.4}
+.cloud-house-row .btn{flex-shrink:0}
+.cloud-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-top:14px;margin-top:4px}
+.cloud-user-email{color:#6c618e!important}
+.cloud-sync-status{border-radius:10px;background:#f4effa;padding:11px 12px;color:#72638c!important}
+.cloud-notice{background:#f2edfa;color:#706185!important;padding:12px;border-radius:9px}
+.cloud-error{background:#fff2f4;color:#ae4359;padding:12px;border-radius:10px;font-size:12px;line-height:1.6;margin:11px 0}
+.cloud-progress{color:#7564ac!important}
+.cloud-invites{margin:12px 0}
+.cloud-invite-result{padding:13px;background:#f7f4fc;border-radius:12px;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.cloud-invite-result small{width:100%;font-size:11px;color:#9a94a9;line-height:1.5}
+@media(max-width:600px){.cloud-inline-form{flex-direction:column;align-items:stretch}.cloud-inline-form label{flex-basis:auto;width:100%}.cloud-inline-form .btn{width:100%}.cloud-house-row>.btn{min-height:40px}}
