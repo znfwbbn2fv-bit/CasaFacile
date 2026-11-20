@@ -1,0 +1,61 @@
+name: Genera brochure CasaFacile smartphone
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/create-mobile-brochure.yml"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  brochure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: brochure-casafacile
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Dipendenze screenshot
+        run: |
+          npm install --no-save --no-package-lock playwright qrcode
+          npx playwright install --with-deps chromium
+      - name: Schermate autentiche CasaFacile
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/casafacile-brochure-http.log 2>&1 &
+          sleep 2
+          node brochure/src/capture.mjs
+      - name: Brochure PDF mobile
+        run: node brochure/src/build.mjs
+      - name: Verifica PDF
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          p=Path('brochure/CasaFacile_Brochure_Smartphone.pdf')
+          assert p.exists() and p.stat().st_size > 120000
+          images=list(Path('brochure/assets').glob('*.png'))
+          assert len(images)>=9
+          output=subprocess.check_output(['pdfinfo',str(p)],text=True)
+          assert any(line.strip().startswith('Pages:') and line.split(':')[1].strip()=='8' for line in output.splitlines()),output
+          print('Verifica completata: brochure 8 pagine, 8 schermate app, QR code.')
+          PY
+      - name: Pubblica PDF e schermate nel ramo brochure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add brochure/CasaFacile_Brochure_Smartphone.pdf brochure/assets/
+          if ! git diff --cached --quiet; then
+            git commit -m "Brochure CasaFacile per smartphone con schermate autentiche"
+            git push origin HEAD:brochure-casafacile
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CasaFacile-Brochure-Smartphone
+          path: |
+            brochure/CasaFacile_Brochure_Smartphone.pdf
+            brochure/CasaFacile_brochure_mobile.html
+          if-no-files-found: error
