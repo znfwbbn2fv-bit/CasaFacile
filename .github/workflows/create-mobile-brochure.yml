@@ -21,7 +21,7 @@ jobs:
           node-version: "22"
       - name: Dipendenze screenshot
         run: |
-          npm install --no-save --no-package-lock playwright qrcode
+          npm install --no-save --no-package-lock playwright qrcode pdf-lib
           npx playwright install --with-deps chromium
       - name: Schermate autentiche CasaFacile
         run: |
@@ -32,17 +32,8 @@ jobs:
         run: node brochure/src/build.mjs
       - name: Verifica PDF
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import subprocess
-          p=Path('brochure/CasaFacile_Brochure_Smartphone.pdf')
-          assert p.exists() and p.stat().st_size > 120000
-          images=list(Path('brochure/assets').glob('*.png'))
-          assert len(images)>=9
-          output=subprocess.check_output(['pdfinfo',str(p)],text=True)
-          assert any(line.strip().startswith('Pages:') and line.split(':')[1].strip()=='8' for line in output.splitlines()),output
-          print('Verifica completata: brochure 8 pagine, 8 schermate app, QR code.')
-          PY
+          node --input-type=module -e "import {PDFDocument} from 'pdf-lib'; import fs from 'node:fs'; const p='brochure/CasaFacile_Brochure_Smartphone.pdf'; const buf=fs.readFileSync(p); const pdf=await PDFDocument.load(buf); if(pdf.getPageCount()!==8) throw Error('Pagine PDF: '+pdf.getPageCount()); if(buf.length<120000) throw Error('PDF troppo piccolo'); console.log('Verificato PDF: '+pdf.getPageCount()+' pagine, '+buf.length+' bytes')"
+          test "$(find brochure/assets -name '*.png' | wc -l)" -ge 9
       - name: Pubblica PDF e schermate nel ramo brochure
         run: |
           git config user.name "github-actions[bot]"
