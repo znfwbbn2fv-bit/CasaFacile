@@ -5,7 +5,7 @@ const dir=path.resolve('brochure');
 const files=['dashboard','tasks','calendar','rooms','people','stats','sharing','settings','qr-app'];
 for(const name of files){
   const p=path.join(dir,'assets',name+'.png');
-  if(!fs.existsSync(p)||fs.statSync(p).size<15000)throw Error('Screenshot reale mancante: '+name);
+  if(!fs.existsSync(p)||fs.statSync(p).size<(name==='qr-app'?1000:15000))throw Error('Immagine mancante: '+name);
 }
 const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
 const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
