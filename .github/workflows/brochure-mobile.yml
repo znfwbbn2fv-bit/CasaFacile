@@ -1,0 +1,58 @@
+name: Crea brochure CasaFacile mobile
+on:
+  workflow_dispatch:
+  push:
+    branches: ["brochure-casafacile"]
+    paths:
+      - "brochure/src/**"
+      - "brochure/CasaFacile_brochure_mobile.html"
+permissions:
+  contents: write
+jobs:
+  brochure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Installa le dipendenze
+        run: |
+          npm install --no-save --no-package-lock playwright qrcode
+          npx playwright install --with-deps chromium
+      - name: Fotografa l'interfaccia reale CasaFacile
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 > /tmp/casafacile-http.log 2>&1 &
+          node brochure/src/capture.mjs
+      - name: Crea la brochure verticale PDF
+        run: node brochure/src/build.mjs
+      - name: Verifica pagine PDF e immagini
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess
+          p=Path('brochure/CasaFacile_Brochure_Smartphone.pdf')
+          assert p.exists() and p.stat().st_size > 120000
+          images=list(Path('brochure/assets').glob('*.png'))
+          assert len(images)>=9
+          output=subprocess.check_output(['pdfinfo',str(p)],text=True)
+          assert 'Pages:           8' in output,output
+          print('Brochure verificata: 8 pagine e 9 immagini autentiche / QR')
+          PY
+      - name: Salva PDF e schermate sul ramo brochure
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add brochure/CasaFacile_Brochure_Smartphone.pdf brochure/assets/
+          git commit -m "Brochure CasaFacile mobile 8 pagine con schermate autentiche" || exit 0
+          git push origin HEAD:brochure-casafacile
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CasaFacile-Brochure-Smartphone
+          path: |
+            brochure/CasaFacile_Brochure_Smartphone.pdf
+            brochure/CasaFacile_brochure_mobile.html
+          if-no-files-found: error
